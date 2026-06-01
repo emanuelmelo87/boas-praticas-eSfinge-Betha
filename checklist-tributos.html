@@ -40,6 +40,9 @@
     .entity-name { font-weight: 700; font-size: .9rem; color: var(--blue); }
     .entity-chip { font-size: .75rem; color: var(--gray); background: var(--gray-bg); padding: 3px 10px; border-radius: 99px; }
     .iter-badge  { font-size: .72rem; font-weight: 700; background: var(--blue-light); color: var(--blue); padding: 3px 10px; border-radius: 99px; }
+    .cred-chip   { font-size: .73rem; color: #555; background: #fef3c7; padding: 3px 10px; border-radius: 99px; border: 1px solid #fcd34d; display: inline-flex; align-items: center; gap: 5px; }
+    .btn-copy-cred { background: none; border: none; cursor: pointer; font-size: .75rem; padding: 0 2px; color: var(--orange); transition: .15s; }
+    .btn-copy-cred:hover { color: #92400e; }
     .entity-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 
     /* ── Phase tabs ── */
@@ -209,6 +212,40 @@
     .seletor-item-sub   { font-size: .72rem; color: var(--gray); margin-top: 2px; }
     .seletor-check { color: var(--blue); font-size: 1rem; flex-shrink: 0; }
 
+    /* ── Tela de seleção ── */
+    .selecao-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 4px 0 18px; }
+    .selecao-head h2 { color: var(--blue); font-size: 1.15rem; flex: 1; }
+    .selecao-section-title { font-size: .74rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--gray); margin: 18px 0 10px; display: flex; align-items: center; gap: 6px; }
+    .selecao-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+    .exec-card {
+      background: #fff; border-radius: 12px; box-shadow: var(--shadow);
+      border-left: 4px solid #cbd5e1; padding: 16px; display: flex; flex-direction: column; gap: 10px;
+      transition: transform .12s, box-shadow .12s;
+    }
+    .exec-card.andamento { border-left-color: var(--blue); }
+    .exec-card.com_erros { border-left-color: var(--orange); }
+    .exec-card.concluido { border-left-color: var(--green); opacity: .85; }
+    .exec-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,.1); }
+    .exec-card-top { display: flex; align-items: flex-start; gap: 8px; }
+    .exec-card-ent { flex: 1; font-weight: 700; font-size: .92rem; color: var(--blue); line-height: 1.3; }
+    .exec-card-statusicon { font-size: 1.1rem; flex-shrink: 0; }
+    .exec-card-meta { display: flex; flex-wrap: wrap; gap: 6px; }
+    .exec-chip { font-size: .72rem; color: #475569; background: var(--gray-bg); padding: 3px 9px; border-radius: 99px; display: inline-flex; align-items: center; gap: 4px; }
+    .exec-chip.ug { background: var(--blue-light); color: var(--blue); }
+    .exec-chip.chamado { background: #ecfeff; color: #0e7490; cursor: pointer; text-decoration: none; }
+    .exec-chip.chamado:hover { background: #cffafe; }
+    .exec-card-progress { display: flex; align-items: center; gap: 8px; }
+    .exec-card-progress .bar { flex: 1; height: 6px; background: #e9ecef; border-radius: 99px; overflow: hidden; }
+    .exec-card-progress .fill { height: 100%; background: var(--blue); border-radius: 99px; }
+    .exec-card.concluido .exec-card-progress .fill { background: var(--green); }
+    .exec-card.com_erros .exec-card-progress .fill { background: var(--orange); }
+    .exec-card-progress .ptxt { font-size: .7rem; color: var(--gray); white-space: nowrap; }
+    .exec-card-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 2px; }
+    .exec-card-upd { font-size: .68rem; color: #94a3b8; }
+    .selecao-empty { background: #fff; border-radius: 12px; box-shadow: var(--shadow); padding: 40px 24px; text-align: center; }
+    .selecao-empty .icon { font-size: 2.5rem; margin-bottom: 12px; }
+    .selecao-empty p { color: var(--gray); font-size: .88rem; margin-bottom: 18px; }
+
     /* Toast */
     .toast { position: fixed; bottom: 72px; right: 20px; background: #15803d; color: #fff; padding: 10px 18px; border-radius: 8px; font-size: .82rem; font-weight: 600; z-index: 400; box-shadow: 0 4px 14px rgba(0,0,0,.2); animation: toastIn .2s; }
     @keyframes toastIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
@@ -226,18 +263,52 @@
 <div class="modal-overlay" id="modal-entidade">
   <div class="modal-box">
     <div class="modal-title">🏛️ Dados da Entidade</div>
+
     <div class="modal-field">
       <label>Nome da entidade</label>
       <input type="text" id="ent-nome" placeholder="MUNICIPIO DE X">
     </div>
-    <div class="modal-field">
-      <label>Código / UG</label>
-      <input type="text" id="ent-codigo" placeholder="123">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="modal-field">
+        <label>Código / UG</label>
+        <input type="text" id="ent-codigo" placeholder="123">
+      </div>
+      <div class="modal-field">
+        <label>ID da entidade</label>
+        <input type="text" id="ent-id" placeholder="39">
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="modal-field">
+        <label>Código da UG</label>
+        <input type="text" id="ent-codigo-ug" placeholder="123456">
+      </div>
+      <div class="modal-field">
+        <label>Município</label>
+        <input type="text" id="ent-municipio" placeholder="São Lourenço do Oeste">
+      </div>
     </div>
     <div class="modal-field">
-      <label>Município</label>
-      <input type="text" id="ent-municipio" placeholder="São Lourenço do Oeste">
+      <label>Caminho do arquivo de resultados (opcional)</label>
+      <input type="text" id="ent-caminho-resultados" placeholder="C:\Ferramentinhas\resultado.html">
     </div>
+
+    <div style="border-top:1px solid var(--border);margin:14px 0 14px;padding-top:14px">
+      <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--orange);margin-bottom:10px">
+        🔒 Credenciais — salvas somente neste computador
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="modal-field">
+          <label>Usuário</label>
+          <input type="text" id="ent-usuario" placeholder="usuario@betha.com.br" autocomplete="off">
+        </div>
+        <div class="modal-field">
+          <label>Senha</label>
+          <input type="password" id="ent-senha" placeholder="••••••••" autocomplete="new-password">
+        </div>
+      </div>
+    </div>
+
     <div class="modal-footer">
       <button class="btn btn-ghost" id="btn-entidade-cancelar" onclick="fecharModalEntidade()">Cancelar</button>
       <button class="btn btn-primary" onclick="salvarEntidade()">💾 Salvar entidade</button>
@@ -271,17 +342,33 @@
 <div class="entity-bar" id="entity-bar">
   <!-- Seletor de execução ativa -->
   <div style="position:relative;flex:1">
-    <button class="btn-seletor" id="btn-seletor" onclick="toggleSeletor()">
+    <button class="btn-seletor" id="btn-seletor" onclick="toggleSeletor()" style="position:relative">
       <span id="seletor-label">Nenhuma execução ativa</span>
       <span style="margin-left:6px;font-size:.8rem">▾</span>
+      <span id="badge-execucoes" style="position:absolute;top:-6px;right:-8px;background:var(--orange);color:#fff;border-radius:99px;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;display:none"></span>
     </button>
     <div id="seletor-dropdown" class="seletor-dropdown hidden"></div>
   </div>
   <div class="entity-actions">
+    <button class="btn btn-ghost btn-sm" id="btn-trocar-exec" onclick="voltarSelecao()" style="display:none">← Trocar execução</button>
     <button class="btn btn-ghost btn-sm" onclick="abrirModalEntidade()">✏️ Entidade</button>
     <button class="btn btn-ghost btn-sm" onclick="abrirModalHistorico()">📋 Histórico</button>
     <button class="btn btn-primary btn-sm" onclick="novaIteracao()">➕ Nova execução</button>
   </div>
+</div>
+
+<!-- ── Link do chamado ── -->
+<div id="link-bar" style="background:#fff;padding:10px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+  <label style="font-size:.75rem;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.04em;margin:0;white-space:nowrap">
+    🔗 Link do chamado:
+  </label>
+  <div style="flex:1;min-width:200px;display:flex;align-items:center;gap:6px">
+    <input type="text" id="link-chamado" placeholder="Cole aqui o link do chamado/ticket (Jira, Service Now, etc.)"
+           style="flex:1;padding:7px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:.82rem;background:#fafbfc"
+           onchange="salvarLinkChamado()">
+    <button class="btn btn-ghost btn-sm" id="btn-abrir-chamado" onclick="abrirLinkChamado()" style="display:none">🔗 Abrir</button>
+  </div>
+  <span id="link-chamado-status" style="font-size:.75rem;color:var(--gray)"></span>
 </div>
 
 <!-- ── Phase tabs ── -->
@@ -375,6 +462,13 @@ let _iter       = null;   // iteração ativa (ref em _dados.historico)
 let _fase       = 'gerando';
 let _fileHandle = null;   // File System Access API handle
 let _blobUrl    = null;   // URL do blob atual do iframe
+let _view       = 'selecao';  // 'selecao' = tela inicial de seleção | 'execucao' = trabalhando numa execução
+
+/* Roteador central de render: decide entre a tela de seleção e o fluxo de execução */
+function render() {
+  if (_view === 'selecao') { renderizarSelecao(); return; }
+  renderizarTudo();
+}
 
 /* ══════════════════════════════════════════════
    FIREBASE — INICIALIZAÇÃO E SINCRONIZAÇÃO
@@ -389,15 +483,13 @@ function iniciarFirebase() {
       .onSnapshot(snap => {
         const idAtual = _iter?._docId;
         _dados.historico = snap.docs.map(doc => ({ ...doc.data(), _docId: doc.id }));
-        // Mantém a execução selecionada; se não tiver, pega a mais recente em andamento
+        // Mantém a execução selecionada (se o usuário já escolheu uma).
+        // NÃO auto-seleciona: ao entrar, mostramos a tela de seleção.
         if (idAtual) {
           _iter = _dados.historico.find(i => i._docId === idAtual) || null;
+          if (!_iter) _view = 'selecao';  // execução sumiu → volta à seleção
         }
-        if (!_iter) {
-          const ativas = _dados.historico.filter(i => i.status === 'em_andamento');
-          _iter = ativas[ativas.length - 1] || null;
-        }
-        renderizarTudo();
+        render();
       }, err => {
         if (err.code === 'permission-denied') {
           toast('⚠️ Sem permissão no banco. Verifique as regras do Firestore.');
@@ -411,7 +503,8 @@ function iniciarFirebase() {
 async function salvar() {
   if (!_db || !_iter) return;
   const { _docId, ...dados } = _iter;
-  // Converte timestamps do Firestore para string antes de salvar
+  // Adiciona timestamp automático de última atualização
+  dados.updatedAt = new Date().toISOString();
   try {
     if (_docId) {
       await _db.collection(FB_COLECAO).doc(_docId).set(dados);
@@ -442,11 +535,14 @@ async function criarIteracao(competencia) {
   const existentes = _dados.historico.filter(i => i.competencia === competencia);
   const numIter = existentes.length + 1;
   const nova = {
-    entidade:   _dados.entidade || {},
+    entidade:      entidadePublica(),
     competencia, iteracao: numIter,
-    dataInicio: new Date().toISOString(), dataFim: null,
-    status: 'em_andamento',
-    fases: {}
+    dataInicio:    new Date().toISOString(),
+    dataFim:       null,
+    status:        'em_andamento',
+    linkChamado:   '',
+    updatedAt:     new Date().toISOString(),
+    fases:         {}
   };
   for (const fase of FASES) {
     nova.fases[fase] = DEF[fase].map(e => ({
@@ -525,10 +621,22 @@ async function removerErro(fase, etapaIdx, erroId) {
 /* ══════════════════════════════════════════════
    RENDER
 ══════════════════════════════════════════════ */
+
+/* Mostra/oculta os elementos que pertencem só à visão de execução */
+function setChromeExecucao(visivel) {
+  const disp = visivel ? '' : 'none';
+  document.getElementById('link-bar').style.display    = visivel ? '' : 'none';
+  document.getElementById('phase-nav').style.display   = visivel ? '' : 'none';
+  document.getElementById('btn-trocar-exec').style.display = visivel ? '' : 'none';
+  if (!visivel) document.getElementById('bottom-bar').style.display = 'none';
+}
+
 function renderizarTudo() {
   if (!_dados.entidade) { abrirModalEntidade(); return; }
   if (!_iter) { renderizarSetup(); return; }
+  setChromeExecucao(true);
   atualizarEntityBar();
+  carregarLinkChamado();
   atualizarTabs();
   // Garante largura correta para a fase atual
   const main = document.querySelector('.main');
@@ -538,8 +646,109 @@ function renderizarTudo() {
   document.getElementById('bottom-bar').style.display = '';
 }
 
+/* ── Tela de seleção (home) ── */
+function renderizarSelecao() {
+  setChromeExecucao(false);
+  atualizarEntityBar();
+  const main = document.querySelector('.main');
+  if (main) main.classList.remove('full-width');
+
+  const ativas     = _dados.historico.filter(i => i.status === 'em_andamento');
+  const concluidas = _dados.historico
+    .filter(i => i.status === 'concluido')
+    .sort((a,b) => new Date(b.updatedAt||b.dataInicio) - new Date(a.updatedAt||a.dataInicio));
+
+  let html = `
+    <div class="selecao-head">
+      <h2>📋 Selecione uma execução</h2>
+      <button class="btn btn-ghost btn-sm" onclick="abrirModalHistorico()">📋 Histórico completo</button>
+      <button class="btn btn-primary btn-sm" onclick="novaIteracao()">➕ Nova execução</button>
+    </div>`;
+
+  if (!ativas.length && !concluidas.length) {
+    html += `
+      <div class="selecao-empty">
+        <div class="icon">📭</div>
+        <p>Nenhuma execução ainda. Crie a primeira para começar o controle de envio.</p>
+        <button class="btn btn-primary" onclick="novaIteracao()">➕ Nova execução</button>
+      </div>`;
+  } else {
+    if (ativas.length) {
+      html += `<div class="selecao-section-title">🔄 Em andamento (${ativas.length})</div>`;
+      html += `<div class="selecao-grid">` + ativas.map(renderExecCard).join('') + `</div>`;
+    }
+    if (concluidas.length) {
+      html += `<div class="selecao-section-title">✅ Concluídas (${concluidas.length})</div>`;
+      html += `<div class="selecao-grid">` + concluidas.map(renderExecCard).join('') + `</div>`;
+    }
+  }
+
+  document.getElementById('main-content').innerHTML = html;
+}
+
+function renderExecCard(iter) {
+  const e = iter.entidade || {};
+  const [ano, mes] = (iter.competencia || '-').split('-');
+  const meses = ['','Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const numeral = ['','1ª','2ª','3ª','4ª','5ª','6ª','7ª','8ª','9ª'];
+
+  // Progresso e status agregado
+  let total = 0, concl = 0, temErro = false;
+  for (const fase of FASES) {
+    const etapas = iter.fases?.[fase] || [];
+    total += etapas.length;
+    concl += etapas.filter(x => x.status !== 'pendente').length;
+    if (etapas.some(x => x.status === 'com_erros')) temErro = true;
+  }
+  const pct = total > 0 ? Math.round(concl / total * 100) : 0;
+
+  let cls, icon;
+  if (iter.status === 'concluido') { cls = 'concluido'; icon = '✅'; }
+  else if (temErro)                { cls = 'com_erros'; icon = '⚠️'; }
+  else                             { cls = 'andamento'; icon = '🔄'; }
+
+  const updStr = iter.updatedAt
+    ? new Date(iter.updatedAt).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })
+    : new Date(iter.dataInicio).toLocaleDateString('pt-BR');
+
+  const chamadoChip = iter.linkChamado
+    ? `<a class="exec-chip chamado" href="${escAttr(iter.linkChamado)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">🔗 Chamado</a>`
+    : '';
+  const ugChip = e.codigoUg ? `<span class="exec-chip ug">UG ${escHtml(e.codigoUg)}</span>` : '';
+
+  return `
+  <div class="exec-card ${cls}">
+    <div class="exec-card-top">
+      <div class="exec-card-ent">${escHtml(e.nome || '— sem entidade —')}</div>
+      <span class="exec-card-statusicon">${icon}</span>
+    </div>
+    <div class="exec-card-meta">
+      ${ugChip}
+      <span class="exec-chip">📅 ${meses[parseInt(mes)] || mes}/${ano}</span>
+      <span class="exec-chip">🔁 ${numeral[iter.iteracao] || iter.iteracao + 'ª'} iter.</span>
+      ${chamadoChip}
+    </div>
+    <div class="exec-card-progress">
+      <div class="bar"><div class="fill" style="width:${pct}%"></div></div>
+      <span class="ptxt">${concl}/${total} · ${pct}%</span>
+    </div>
+    <div class="exec-card-foot">
+      <span class="exec-card-upd">atualizado ${updStr}</span>
+      <button class="btn btn-primary btn-sm" onclick="selecionarIteracao('${iter._docId}')">▶ Tocar nesta</button>
+    </div>
+  </div>`;
+}
+
+function voltarSelecao() {
+  fecharSeletor();
+  _view = 'selecao';
+  _iter = null;
+  render();
+}
+
 function renderizarSetup() {
-  document.getElementById('bottom-bar').style.display = 'none';
+  setChromeExecucao(false);
+  document.getElementById('btn-trocar-exec').style.display = '';  // permite voltar à seleção
   document.getElementById('main-content').innerHTML = `
     <div class="setup-panel">
       <div style="font-size:2.5rem;margin-bottom:12px">📋</div>
@@ -572,7 +781,8 @@ async function iniciarNovaCompetencia() {
   const ano = document.getElementById('setup-ano').value.trim();
   if (!ano.match(/^\d{4}$/)) { alert('Informe um ano válido.'); return; }
   await criarIteracao(`${ano}-${mes}`);
-  renderizarTudo();
+  _view = 'execucao';
+  render();
 }
 
 function setFase(fase) {
@@ -800,6 +1010,15 @@ function atualizarEntityBar() {
   const ativas = _dados.historico.filter(i => i.status === 'em_andamento');
   const label  = _iter ? labelIteracao(_iter) : (ativas.length ? 'Selecione uma execução ▾' : 'Nenhuma execução ativa');
   document.getElementById('seletor-label').textContent = label;
+
+  // Mostra badge com número de execuções em andamento (se mais de 1)
+  const badge = document.getElementById('badge-execucoes');
+  if (ativas.length > 1) {
+    badge.textContent = ativas.length;
+    badge.style.display = 'flex';
+  } else {
+    badge.style.display = 'none';
+  }
 }
 
 function labelIteracao(iter) {
@@ -879,7 +1098,9 @@ function progresso(iter) {
 async function novaIteracao() {
   // Cria nova execução SEM fechar a atual — abre tela de seleção de competência
   fecharSeletor();
+  _view = 'execucao';
   _iter = null;   // temporariamente sem seleção para mostrar o setup
+  if (!_dados.entidade) { abrirModalEntidade(); return; }
   renderizarSetup();
 }
 
@@ -889,17 +1110,25 @@ async function concluirIteracao() {
   _iter.status = 'concluido';
   _iter.dataFim = new Date().toISOString();
   await salvar();
-  // Selecionar a próxima em andamento, se houver
-  const proxima = _dados.historico.find(i => i.status === 'em_andamento' && i._docId !== _iter._docId);
-  _iter = proxima || null;
-  renderizarTudo();
+  // Volta para a tela de seleção após concluir
+  _view = 'selecao';
+  _iter = null;
+  render();
 }
 
 function selecionarIteracao(docId) {
   const iter = _dados.historico.find(i => i._docId === docId);
-  if (iter) { _iter = iter; }
+  if (iter) {
+    _iter = iter;
+    _view = 'execucao';
+    // Se a máquina local ainda não tem entidade configurada, herda da execução
+    if (!_dados.entidade && iter.entidade && iter.entidade.nome) {
+      _dados.entidade = { ...iter.entidade };
+      salvarEntidadeLocal();
+    }
+  }
   fecharSeletor();
-  renderizarTudo();
+  render();
 }
 
 /* ══════════════════════════════════════════════
@@ -907,9 +1136,14 @@ function selecionarIteracao(docId) {
 ══════════════════════════════════════════════ */
 function abrirModalEntidade() {
   const e = _dados.entidade || {};
-  document.getElementById('ent-nome').value      = e.nome      || '';
-  document.getElementById('ent-codigo').value    = e.codigo    || '';
-  document.getElementById('ent-municipio').value = e.municipio || '';
+  document.getElementById('ent-nome').value         = e.nome      || '';
+  document.getElementById('ent-codigo').value       = e.codigo    || '';
+  document.getElementById('ent-codigo-ug').value    = e.codigoUg  || '';
+  document.getElementById('ent-municipio').value    = e.municipio || '';
+  document.getElementById('ent-id').value           = e.idEntidade || '';
+  document.getElementById('ent-usuario').value      = e.usuario   || '';
+  document.getElementById('ent-senha').value        = e.senha     || '';
+  document.getElementById('ent-caminho-resultados').value = e.caminhoResultados || '';
   document.getElementById('btn-entidade-cancelar').style.display = _dados.entidade ? '' : 'none';
   document.getElementById('modal-entidade').classList.remove('hidden');
 }
@@ -923,14 +1157,69 @@ async function salvarEntidade() {
   if (!nome) { alert('Informe o nome da entidade.'); return; }
   _dados.entidade = {
     nome,
-    codigo:    document.getElementById('ent-codigo').value.trim(),
-    municipio: document.getElementById('ent-municipio').value.trim(),
+    codigo:             document.getElementById('ent-codigo').value.trim(),
+    codigoUg:           document.getElementById('ent-codigo-ug').value.trim(),
+    municipio:          document.getElementById('ent-municipio').value.trim(),
+    idEntidade:         document.getElementById('ent-id').value.trim(),
+    usuario:            document.getElementById('ent-usuario').value.trim(),
+    senha:              document.getElementById('ent-senha').value.trim(),
+    caminhoResultados:  document.getElementById('ent-caminho-resultados').value.trim(),
   };
   salvarEntidadeLocal();
-  // Atualiza entidade na iteração ativa no Firestore também
-  if (_iter) { _iter.entidade = _dados.entidade; await salvar(); }
+  // Atualiza entidade na iteração ativa no Firestore (SEM credenciais)
+  if (_iter) { _iter.entidade = entidadePublica(); await salvar(); }
   fecharModalEntidade();
-  renderizarTudo();
+  render();
+}
+
+/* Entidade sem credenciais — usuário/senha NUNCA vão para o Firestore */
+function entidadePublica() {
+  if (!_dados.entidade) return {};
+  const { usuario, senha, ...pub } = _dados.entidade;
+  return pub;
+}
+
+/* ══════════════════════════════════════════════
+   LINK DO CHAMADO
+══════════════════════════════════════════════ */
+function carregarLinkChamado() {
+  if (!_iter) return;
+  const input = document.getElementById('link-chamado');
+  const btnAbrir = document.getElementById('btn-abrir-chamado');
+  const status = document.getElementById('link-chamado-status');
+
+  if (_iter.linkChamado) {
+    input.value = _iter.linkChamado;
+    btnAbrir.style.display = '';
+    status.textContent = '✅ Salvo';
+  } else {
+    input.value = '';
+    btnAbrir.style.display = 'none';
+    status.textContent = '';
+  }
+}
+
+async function salvarLinkChamado() {
+  if (!_iter) return;
+  const link = document.getElementById('link-chamado').value.trim();
+  _iter.linkChamado = link;
+  const btnAbrir = document.getElementById('btn-abrir-chamado');
+  const status = document.getElementById('link-chamado-status');
+
+  if (link) {
+    btnAbrir.style.display = '';
+    status.textContent = '✅ Salvo';
+  } else {
+    btnAbrir.style.display = 'none';
+    status.textContent = '';
+  }
+
+  await salvar();
+}
+
+function abrirLinkChamado() {
+  if (!_iter || !_iter.linkChamado) return;
+  window.open(_iter.linkChamado, '_blank');
 }
 
 /* ══════════════════════════════════════════════
@@ -1059,6 +1348,10 @@ function escHtml(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
+function escAttr(s) {
+  return escHtml(s).replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
 function toast(msg) {
   const t = document.createElement('div');
   t.className = 'toast'; t.textContent = msg;
@@ -1072,7 +1365,8 @@ const FASE_LABELS_MAP = { gerando:'Gerando', validando:'Validando', enviando:'En
    INIT
 ══════════════════════════════════════════════ */
 carregarEntidadeLocal();
-iniciarFirebase(); // onSnapshot chamará renderizarTudo() automaticamente
+render();          // mostra a tela de seleção imediatamente (vazia até o Firestore responder)
+iniciarFirebase(); // onSnapshot chamará render() conforme os dados chegam
 </script>
 </body>
 </html>
