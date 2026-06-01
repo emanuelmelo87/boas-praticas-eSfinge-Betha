@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Check list Tributos — e-Sfinge</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -251,7 +254,17 @@
 /* ══════════════════════════════════════════════
    DEFINIÇÕES
 ══════════════════════════════════════════════ */
-const LS_KEY = 'checklist-tributos-v1';
+const LS_KEY     = 'checklist-tributos-v1';       // só para entidade local
+const FB_CONFIG  = {
+  apiKey:            "AIzaSyCvvtlScjCLWTwiHa3hw9U1rEK-oYblcJQ",
+  authDomain:        "erros-esfinge.firebaseapp.com",
+  projectId:         "erros-esfinge",
+  storageBucket:     "erros-esfinge.firebasestorage.app",
+  messagingSenderId: "682442944427",
+  appId:             "1:682442944427:web:f748dc5027064696b52cee"
+};
+const FB_COLECAO = 'checklist-tributos';
+let _db = null;
 
 const DEF = {
   gerando: [
@@ -304,31 +317,78 @@ const FASES = ['gerando','validando','enviando','finalizando'];
 /* ══════════════════════════════════════════════
    ESTADO
 ══════════════════════════════════════════════ */
-let _dados = null;   // { entidade, historico[] }
+let _dados = { entidade: null, historico: [] };
 let _iter  = null;   // iteração ativa (ref em _dados.historico)
 let _fase  = 'gerando';
 
 /* ══════════════════════════════════════════════
-   PERSISTÊNCIA
+   FIREBASE — INICIALIZAÇÃO E SINCRONIZAÇÃO
 ══════════════════════════════════════════════ */
-function carregar() {
-  try { _dados = JSON.parse(localStorage.getItem(LS_KEY) || 'null'); } catch {}
-  if (!_dados) _dados = { entidade: null, historico: [] };
-  _iter = _dados.historico.find(i => i.status === 'em_andamento') || null;
+function iniciarFirebase() {
+  try {
+    if (!firebase.apps.length) firebase.initializeApp(FB_CONFIG);
+    _db = firebase.firestore();
+
+    _db.collection(FB_COLECAO)
+      .orderBy('dataInicio', 'asc')
+      .onSnapshot(snap => {
+        // Reconstrói o histórico a partir dos documentos do Firestore
+        _dados.historico = snap.docs.map(doc => ({ ...doc.data(), _docId: doc.id }));
+        // Mantém a referência da iteração ativa
+        const idAtual = _iter?._docId;
+        _iter = _dados.historico.find(i => i.status === 'em_andamento') || null;
+        if (idAtual && !_iter) {
+          _iter = _dados.historico.find(i => i._docId === idAtual) || null;
+        }
+        renderizarTudo();
+      }, err => {
+        if (err.code === 'permission-denied') {
+          toast('⚠️ Sem permissão no banco. Verifique as regras do Firestore.');
+        } else {
+          console.warn('Firestore:', err);
+        }
+      });
+  } catch (e) {
+    console.warn('Firebase não inicializado:', e);
+  }
 }
 
-function salvar() {
-  localStorage.setItem(LS_KEY, JSON.stringify(_dados));
+async function salvar() {
+  if (!_db || !_iter) return;
+  const { _docId, ...dados } = _iter;
+  // Converte timestamps do Firestore para string antes de salvar
+  try {
+    if (_docId) {
+      await _db.collection(FB_COLECAO).doc(_docId).set(dados);
+    }
+  } catch (e) {
+    console.warn('Erro ao salvar:', e);
+  }
+}
+
+// Entidade continua em localStorage (config local da máquina)
+function carregarEntidadeLocal() {
+  try {
+    const d = JSON.parse(localStorage.getItem(LS_KEY) || 'null');
+    if (d?.entidade) _dados.entidade = d.entidade;
+  } catch {}
+}
+
+function salvarEntidadeLocal() {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify({ entidade: _dados.entidade }));
+  } catch {}
 }
 
 /* ══════════════════════════════════════════════
    CRIAÇÃO DE ITERAÇÃO
 ══════════════════════════════════════════════ */
-function criarIteracao(competencia) {
+async function criarIteracao(competencia) {
   const existentes = _dados.historico.filter(i => i.competencia === competencia);
   const numIter = existentes.length + 1;
   const nova = {
-    id: uid(), competencia, iteracao: numIter,
+    entidade:   _dados.entidade || {},
+    competencia, iteracao: numIter,
     dataInicio: new Date().toISOString(), dataFim: null,
     status: 'em_andamento',
     fases: {}
@@ -338,52 +398,57 @@ function criarIteracao(competencia) {
       codigo: e.codigo, nome: e.nome, status: 'pendente', erros: []
     }));
   }
+  if (_db) {
+    try {
+      const ref = await _db.collection(FB_COLECAO).add(nova);
+      nova._docId = ref.id;
+    } catch (e) { console.warn('Erro ao criar iteração:', e); }
+  }
   _dados.historico.push(nova);
   _iter = nova;
-  salvar();
 }
 
 /* ══════════════════════════════════════════════
    ACTIONS
 ══════════════════════════════════════════════ */
-function marcarEtapa(fase, idx, status) {
+async function marcarEtapa(fase, idx, status) {
   const etapa = _iter.fases[fase][idx];
   if (!etapa) return;
   etapa.status = status;
-  salvar();
+  await salvar();
   renderizarFase();
   atualizarTabs();
   atualizarBarraInferior();
 }
 
-function resetarEtapa(fase, idx) {
+async function resetarEtapa(fase, idx) {
   const etapa = _iter.fases[fase][idx];
   if (!etapa) return;
   etapa.status = 'pendente';
   etapa.erros  = [];
-  salvar();
+  await salvar();
   renderizarFase();
   atualizarTabs();
   atualizarBarraInferior();
 }
 
-function adicionarErro(fase, idx, descricao, solucao) {
+async function adicionarErro(fase, idx, descricao, solucao) {
   const etapa = _iter.fases[fase][idx];
   if (!etapa || !descricao.trim()) return;
   etapa.erros.push({ id: uid(), descricao: descricao.trim(), solucao: solucao.trim() });
   etapa.status = 'com_erros';
-  salvar();
+  await salvar();
   renderizarFase();
   atualizarTabs();
   atualizarBarraInferior();
 }
 
-function removerErro(fase, etapaIdx, erroId) {
+async function removerErro(fase, etapaIdx, erroId) {
   const etapa = _iter.fases[fase][etapaIdx];
   if (!etapa) return;
   etapa.erros = etapa.erros.filter(e => e.id !== erroId);
   if (!etapa.erros.length) etapa.status = 'pendente';
-  salvar();
+  await salvar();
   renderizarFase();
   atualizarTabs();
   atualizarBarraInferior();
@@ -431,11 +496,11 @@ function renderizarSetup() {
   atualizarEntityBar();
 }
 
-function iniciarNovaCompetencia() {
+async function iniciarNovaCompetencia() {
   const mes = document.getElementById('setup-mes').value;
   const ano = document.getElementById('setup-ano').value.trim();
   if (!ano.match(/^\d{4}$/)) { alert('Informe um ano válido.'); return; }
-  criarIteracao(`${ano}-${mes}`);
+  await criarIteracao(`${ano}-${mes}`);
   renderizarTudo();
 }
 
@@ -575,13 +640,13 @@ function atualizarEntityBar() {
 /* ══════════════════════════════════════════════
    ITERAÇÃO
 ══════════════════════════════════════════════ */
-function novaIteracao() {
+async function novaIteracao() {
   if (!_iter) return;
   if (!confirm(`Iniciar nova iteração para ${_iter.competencia}?\n\nO registro atual será preservado no histórico.`)) return;
   _iter.status = 'concluido';
   _iter.dataFim = new Date().toISOString();
+  await salvar();
   _iter = null;
-  salvar();
   renderizarSetup();
 }
 
@@ -601,7 +666,7 @@ function fecharModalEntidade() {
   document.getElementById('modal-entidade').classList.add('hidden');
 }
 
-function salvarEntidade() {
+async function salvarEntidade() {
   const nome = document.getElementById('ent-nome').value.trim();
   if (!nome) { alert('Informe o nome da entidade.'); return; }
   _dados.entidade = {
@@ -609,7 +674,9 @@ function salvarEntidade() {
     codigo:    document.getElementById('ent-codigo').value.trim(),
     municipio: document.getElementById('ent-municipio').value.trim(),
   };
-  salvar();
+  salvarEntidadeLocal();
+  // Atualiza entidade na iteração ativa no Firestore também
+  if (_iter) { _iter.entidade = _dados.entidade; await salvar(); }
   fecharModalEntidade();
   renderizarTudo();
 }
@@ -752,8 +819,8 @@ const FASE_LABELS_MAP = { gerando:'Gerando', validando:'Validando', enviando:'En
 /* ══════════════════════════════════════════════
    INIT
 ══════════════════════════════════════════════ */
-carregar();
-renderizarTudo();
+carregarEntidadeLocal();
+iniciarFirebase(); // onSnapshot chamará renderizarTudo() automaticamente
 </script>
 </body>
 </html>
