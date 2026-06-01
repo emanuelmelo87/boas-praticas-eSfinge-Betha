@@ -283,38 +283,46 @@
       </select>
     </div>
 
-    <div class="modal-field">
-      <label>Nome da entidade</label>
-      <input type="text" id="exec-nome" placeholder="MUNICIPIO DE X">
+    <!-- Resumo da entidade escolhida (quando NÃO é nova) -->
+    <div class="modal-field" id="exec-ent-resumo" style="display:none">
+      <label>Entidade selecionada</label>
+      <div id="exec-ent-resumo-txt" style="font-size:.9rem;font-weight:600;color:var(--blue);background:var(--blue-light);border-radius:8px;padding:9px 12px"></div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+
+    <!-- Cadastro de entidade — só aparece para "Nova entidade…" ou ao editar -->
+    <div id="exec-cadastro-fields">
       <div class="modal-field">
-        <label>Código da UG</label>
-        <input type="text" id="exec-ug" placeholder="12351">
+        <label>Nome da entidade</label>
+        <input type="text" id="exec-nome" placeholder="MUNICIPIO DE X">
       </div>
-      <div class="modal-field">
-        <label>ID da entidade</label>
-        <input type="text" id="exec-id" placeholder="39">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="modal-field">
+          <label>Código da UG</label>
+          <input type="text" id="exec-ug" placeholder="12351">
+        </div>
+        <div class="modal-field">
+          <label>ID da entidade</label>
+          <input type="text" id="exec-id" placeholder="39">
+        </div>
       </div>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <div class="modal-field">
         <label>Município</label>
         <input type="text" id="exec-municipio" placeholder="São Lourenço do Oeste">
       </div>
-      <div class="modal-field">
-        <label>Competência</label>
-        <div style="display:flex;gap:6px">
-          <select id="exec-mes" style="flex:1;padding:9px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:.9rem">
-            <option value="01">01 — Jan</option><option value="02">02 — Fev</option>
-            <option value="03">03 — Mar</option><option value="04">04 — Abr</option>
-            <option value="05">05 — Mai</option><option value="06">06 — Jun</option>
-            <option value="07">07 — Jul</option><option value="08">08 — Ago</option>
-            <option value="09">09 — Set</option><option value="10">10 — Out</option>
-            <option value="11">11 — Nov</option><option value="12">12 — Dez</option>
-          </select>
-          <input type="text" id="exec-ano" value="2026" maxlength="4" style="width:70px;padding:9px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:.9rem">
-        </div>
+    </div>
+
+    <div class="modal-field">
+      <label>Competência</label>
+      <div style="display:flex;gap:6px;max-width:220px">
+        <select id="exec-mes" style="flex:1;padding:9px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:.9rem">
+          <option value="01">01 — Jan</option><option value="02">02 — Fev</option>
+          <option value="03">03 — Mar</option><option value="04">04 — Abr</option>
+          <option value="05">05 — Mai</option><option value="06">06 — Jun</option>
+          <option value="07">07 — Jul</option><option value="08">08 — Ago</option>
+          <option value="09">09 — Set</option><option value="10">10 — Out</option>
+          <option value="11">11 — Nov</option><option value="12">12 — Dez</option>
+        </select>
+        <input type="text" id="exec-ano" value="2026" maxlength="4" style="width:70px;padding:9px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:.9rem">
       </div>
     </div>
     <div class="modal-field">
@@ -1226,9 +1234,29 @@ function abrirModalExec(mode) {
   }
 
   preencherCamposExec(ent, comp);
+  atualizarVisaoEntidade();
   document.getElementById('btn-exec-cancelar').style.display = (editar || _dados.historico.length) ? '' : 'none';
   document.getElementById('modal-exec').classList.remove('hidden');
-  setTimeout(() => document.getElementById('exec-nome').focus(), 50);
+}
+
+/* Mostra o cadastro de entidade só quando é "Nova entidade…" (ou ao editar).
+   Para entidade já existente, mostra apenas um resumo — sem formulário de cadastro. */
+function atualizarVisaoEntidade() {
+  const editar = _execMode === 'editar';
+  const sel = document.getElementById('exec-picker');
+  const novaEntidade = editar || !sel || sel.value === '__nova__';
+
+  document.getElementById('exec-cadastro-fields').style.display = novaEntidade ? '' : 'none';
+  const resumo = document.getElementById('exec-ent-resumo');
+  if (novaEntidade) {
+    resumo.style.display = 'none';
+    if (!editar) setTimeout(() => document.getElementById('exec-nome').focus(), 30);
+  } else {
+    const ent = (sel._usadas || [])[parseInt(sel.value, 10)] || {};
+    document.getElementById('exec-ent-resumo-txt').textContent =
+      `🏛️ ${ent.nome || '—'}${ent.codigoUg ? '  ·  UG ' + ent.codigoUg : ''}${ent.municipio ? '  ·  ' + ent.municipio : ''}`;
+    resumo.style.display = '';
+  }
 }
 
 function preencherCamposExec(ent, comp) {
@@ -1251,14 +1279,15 @@ function preencherCamposExec(ent, comp) {
 
 function aoEscolherEntidade() {
   const sel = document.getElementById('exec-picker');
+  const compAtual = (document.getElementById('exec-ano').value && document.getElementById('exec-mes').value)
+    ? `${document.getElementById('exec-ano').value}-${document.getElementById('exec-mes').value}` : '';
   if (sel.value === '__nova__') {
-    preencherCamposExec({}, '');
-    setTimeout(() => document.getElementById('exec-nome').focus(), 30);
+    preencherCamposExec({}, compAtual);
   } else {
     const ent = (sel._usadas || [])[parseInt(sel.value, 10)];
-    if (ent) preencherCamposExec(ent, document.getElementById('exec-ano').value && document.getElementById('exec-mes').value
-      ? `${document.getElementById('exec-ano').value}-${document.getElementById('exec-mes').value}` : '');
+    if (ent) preencherCamposExec(ent, compAtual);
   }
+  atualizarVisaoEntidade();
 }
 
 function fecharModalExec() {
