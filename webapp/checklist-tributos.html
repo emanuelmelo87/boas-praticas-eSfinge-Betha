@@ -269,59 +269,78 @@
 </head>
 <body>
 
-<!-- ── Modal: Entidade ── -->
-<div class="modal-overlay" id="modal-entidade">
+<!-- ── Modal: Execução (entidade + competência + credenciais, tudo junto) ── -->
+<div class="modal-overlay hidden" id="modal-exec">
   <div class="modal-box">
-    <div class="modal-title">🏛️ Dados da Entidade</div>
+    <div class="modal-title" id="modal-exec-title">➕ Nova execução</div>
+
+    <!-- Escolher entidade já usada (somente no modo "nova") -->
+    <div class="modal-field" id="exec-picker-wrap">
+      <label>Entidade</label>
+      <select id="exec-picker" onchange="aoEscolherEntidade()"
+              style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:.9rem">
+        <option value="__nova__">➕ Nova entidade…</option>
+      </select>
+    </div>
 
     <div class="modal-field">
       <label>Nome da entidade</label>
-      <input type="text" id="ent-nome" placeholder="MUNICIPIO DE X">
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      <div class="modal-field">
-        <label>Código / UG</label>
-        <input type="text" id="ent-codigo" placeholder="123">
-      </div>
-      <div class="modal-field">
-        <label>ID da entidade</label>
-        <input type="text" id="ent-id" placeholder="39">
-      </div>
+      <input type="text" id="exec-nome" placeholder="MUNICIPIO DE X">
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <div class="modal-field">
         <label>Código da UG</label>
-        <input type="text" id="ent-codigo-ug" placeholder="123456">
+        <input type="text" id="exec-ug" placeholder="12351">
       </div>
       <div class="modal-field">
+        <label>ID da entidade</label>
+        <input type="text" id="exec-id" placeholder="39">
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="modal-field">
         <label>Município</label>
-        <input type="text" id="ent-municipio" placeholder="São Lourenço do Oeste">
+        <input type="text" id="exec-municipio" placeholder="São Lourenço do Oeste">
+      </div>
+      <div class="modal-field">
+        <label>Competência</label>
+        <div style="display:flex;gap:6px">
+          <select id="exec-mes" style="flex:1;padding:9px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:.9rem">
+            <option value="01">01 — Jan</option><option value="02">02 — Fev</option>
+            <option value="03">03 — Mar</option><option value="04">04 — Abr</option>
+            <option value="05">05 — Mai</option><option value="06">06 — Jun</option>
+            <option value="07">07 — Jul</option><option value="08">08 — Ago</option>
+            <option value="09">09 — Set</option><option value="10">10 — Out</option>
+            <option value="11">11 — Nov</option><option value="12">12 — Dez</option>
+          </select>
+          <input type="text" id="exec-ano" value="2026" maxlength="4" style="width:70px;padding:9px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:.9rem">
+        </div>
       </div>
     </div>
     <div class="modal-field">
       <label>Caminho do arquivo de resultados (opcional)</label>
-      <input type="text" id="ent-caminho-resultados" placeholder="C:\Ferramentinhas\resultado.html">
+      <input type="text" id="exec-caminho" placeholder="C:\Ferramentinhas\resultado.html">
     </div>
 
     <div style="border-top:1px solid var(--border);margin:14px 0 14px;padding-top:14px">
       <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--orange);margin-bottom:10px">
-        🔒 Credenciais — salvas somente neste computador
+        🔒 Credenciais — salvas só neste computador, por UG
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div class="modal-field">
           <label>Usuário</label>
-          <input type="text" id="ent-usuario" placeholder="usuario@betha.com.br" autocomplete="off">
+          <input type="text" id="exec-usuario" placeholder="usuario@betha.com.br" autocomplete="off">
         </div>
         <div class="modal-field">
           <label>Senha</label>
-          <input type="password" id="ent-senha" placeholder="••••••••" autocomplete="new-password">
+          <input type="password" id="exec-senha" placeholder="••••••••" autocomplete="new-password">
         </div>
       </div>
     </div>
 
     <div class="modal-footer">
-      <button class="btn btn-ghost" id="btn-entidade-cancelar" onclick="fecharModalEntidade()">Cancelar</button>
-      <button class="btn btn-primary" onclick="salvarEntidade()">💾 Salvar entidade</button>
+      <button class="btn btn-ghost" id="btn-exec-cancelar" onclick="fecharModalExec()">Cancelar</button>
+      <button class="btn btn-primary" id="btn-exec-salvar" onclick="salvarExec()">▶ Criar execução</button>
     </div>
   </div>
 </div>
@@ -359,9 +378,14 @@
     </button>
     <div id="seletor-dropdown" class="seletor-dropdown hidden"></div>
   </div>
+  <span class="cred-chip" id="cred-chip" style="display:none">
+    <span id="cred-chip-user">👤</span>
+    <button class="btn-copy-cred" title="Copiar usuário" onclick="copiarCred('usuario')">⧉ user</button>
+    <button class="btn-copy-cred" title="Copiar senha" onclick="copiarCred('senha')">🔑 senha</button>
+  </span>
   <div class="entity-actions">
     <button class="btn btn-ghost btn-sm" id="btn-trocar-exec" onclick="voltarSelecao()" style="display:none">← Trocar execução</button>
-    <button class="btn btn-ghost btn-sm" onclick="abrirModalEntidade()">✏️ Entidade</button>
+    <button class="btn btn-ghost btn-sm" id="btn-editar-exec" onclick="abrirModalExec('editar')" style="display:none">✏️ Editar</button>
     <button class="btn btn-ghost btn-sm" onclick="abrirModalHistorico()">📋 Histórico</button>
     <button class="btn btn-primary btn-sm" onclick="novaIteracao()">➕ Nova execução</button>
   </div>
@@ -404,7 +428,6 @@
 /* ══════════════════════════════════════════════
    DEFINIÇÕES
 ══════════════════════════════════════════════ */
-const LS_KEY     = 'checklist-tributos-v1';       // só para entidade local
 const FB_CONFIG  = {
   apiKey:            "AIzaSyCvvtlScjCLWTwiHa3hw9U1rEK-oYblcJQ",
   authDomain:        "erros-esfinge.firebaseapp.com",
@@ -467,12 +490,26 @@ const FASES = ['gerando','validando','enviando','finalizando'];
 /* ══════════════════════════════════════════════
    ESTADO
 ══════════════════════════════════════════════ */
-let _dados      = { entidade: null, historico: [] };
-let _iter       = null;   // iteração ativa (ref em _dados.historico)
+let _dados      = { historico: [] };   // só histórico de execuções (cada uma carrega sua entidade)
+let _iter       = null;   // iteração/execução ativa (ref em _dados.historico)
 let _fase       = 'gerando';
 let _fileHandle = null;   // File System Access API handle
 let _blobUrl    = null;   // URL do blob atual do iframe
 let _view       = 'selecao';  // 'selecao' = tela inicial de seleção | 'execucao' = trabalhando numa execução
+let _execMode   = 'novo';     // modo do modal de execução: 'novo' | 'editar'
+
+/* Credenciais ficam SÓ neste computador, indexadas por código da UG. Nunca vão ao Firestore. */
+const LS_CRED = 'checklist-cred-v1';
+let _creds    = {};
+function carregarCreds() { try { _creds = JSON.parse(localStorage.getItem(LS_CRED) || '{}'); } catch { _creds = {}; } }
+function salvarCreds()   { try { localStorage.setItem(LS_CRED, JSON.stringify(_creds)); } catch {} }
+function credsDaUG(ug)   { return (ug && _creds[ug]) || { usuario:'', senha:'' }; }
+
+/* Roteador central de render: decide entre a tela de seleção e o fluxo de execução */
+function render() {
+  if (_view === 'selecao') { renderizarSelecao(); return; }
+  renderizarTudo();
+}
 
 /* Roteador central de render: decide entre a tela de seleção e o fluxo de execução */
 function render() {
@@ -524,35 +561,31 @@ async function salvar() {
   }
 }
 
-// Entidade continua em localStorage (config local da máquina)
-function carregarEntidadeLocal() {
-  try {
-    const d = JSON.parse(localStorage.getItem(LS_KEY) || 'null');
-    if (d?.entidade) _dados.entidade = d.entidade;
-  } catch {}
-}
-
-function salvarEntidadeLocal() {
-  try {
-    localStorage.setItem(LS_KEY, JSON.stringify({ entidade: _dados.entidade }));
-  } catch {}
-}
-
 /* ══════════════════════════════════════════════
-   CRIAÇÃO DE ITERAÇÃO
+   CRIAÇÃO DE EXECUÇÃO
 ══════════════════════════════════════════════ */
-async function criarIteracao(competencia) {
-  const existentes = _dados.historico.filter(i => i.competencia === competencia);
+// Mesma entidade = mesmo código da UG (ou, sem UG, mesmo nome)
+function mesmaEntidade(a, b) {
+  if (!a || !b) return false;
+  if (a.codigoUg && b.codigoUg) return a.codigoUg === b.codigoUg;
+  return (a.nome || '') === (b.nome || '');
+}
+
+async function criarIteracao(competencia, entidade, caminhoResultados) {
+  // Conta iterações da MESMA entidade na MESMA competência
+  const existentes = _dados.historico.filter(i =>
+    i.competencia === competencia && mesmaEntidade(i.entidade, entidade));
   const numIter = existentes.length + 1;
   const nova = {
-    entidade:      entidadePublica(),
-    competencia, iteracao: numIter,
-    dataInicio:    new Date().toISOString(),
-    dataFim:       null,
-    status:        'em_andamento',
-    linkChamado:   '',
-    updatedAt:     new Date().toISOString(),
-    fases:         {}
+    entidade:           { ...entidade },
+    competencia,        iteracao: numIter,
+    dataInicio:         new Date().toISOString(),
+    dataFim:            null,
+    status:             'em_andamento',
+    linkChamado:        '',
+    caminhoResultados:  caminhoResultados || '',
+    updatedAt:          new Date().toISOString(),
+    fases:              {}
   };
   for (const fase of FASES) {
     nova.fases[fase] = DEF[fase].map(e => ({
@@ -563,7 +596,7 @@ async function criarIteracao(competencia) {
     try {
       const ref = await _db.collection(FB_COLECAO).add(nova);
       nova._docId = ref.id;
-    } catch (e) { console.warn('Erro ao criar iteração:', e); }
+    } catch (e) { console.warn('Erro ao criar execução:', e); }
   }
   _dados.historico.push(nova);
   _iter = nova;
@@ -634,17 +667,21 @@ async function removerErro(fase, etapaIdx, erroId) {
 
 /* Mostra/oculta os elementos que pertencem só à visão de execução */
 function setChromeExecucao(visivel) {
-  const disp = visivel ? '' : 'none';
-  document.getElementById('link-bar').style.display    = visivel ? '' : 'none';
-  document.getElementById('phase-nav').style.display   = visivel ? '' : 'none';
+  document.getElementById('link-bar').style.display       = visivel ? '' : 'none';
+  document.getElementById('phase-nav').style.display      = visivel ? '' : 'none';
   document.getElementById('btn-trocar-exec').style.display = visivel ? '' : 'none';
-  if (!visivel) document.getElementById('bottom-bar').style.display = 'none';
+  document.getElementById('btn-editar-exec').style.display = visivel ? '' : 'none';
+  if (!visivel) {
+    document.getElementById('bottom-bar').style.display = 'none';
+    document.getElementById('cred-chip').style.display  = 'none';
+  }
 }
 
 function renderizarTudo() {
-  if (!_dados.entidade) { abrirModalEntidade(); return; }
-  if (!_iter) { renderizarSetup(); return; }
+  // Sem execução selecionada → volta à tela de seleção (não existe mais "entidade global")
+  if (!_iter) { _view = 'selecao'; renderizarSelecao(); return; }
   setChromeExecucao(true);
+  document.getElementById('btn-editar-exec').style.display = '';
   atualizarEntityBar();
   carregarLinkChamado();
   atualizarTabs();
@@ -753,45 +790,6 @@ function voltarSelecao() {
   fecharSeletor();
   _view = 'selecao';
   _iter = null;
-  render();
-}
-
-function renderizarSetup() {
-  setChromeExecucao(false);
-  document.getElementById('btn-trocar-exec').style.display = '';  // permite voltar à seleção
-  document.getElementById('main-content').innerHTML = `
-    <div class="setup-panel">
-      <div style="font-size:2.5rem;margin-bottom:12px">📋</div>
-      <h2>Nova competência</h2>
-      <p>Selecione a competência para iniciar o controle de envio</p>
-      <div class="setup-row">
-        <div class="setup-field">
-          <label>Mês</label>
-          <select id="setup-mes">
-            <option value="01">01 — Janeiro</option><option value="02">02 — Fevereiro</option>
-            <option value="03" selected>03 — Março</option><option value="04">04 — Abril</option>
-            <option value="05">05 — Maio</option><option value="06">06 — Junho</option>
-            <option value="07">07 — Julho</option><option value="08">08 — Agosto</option>
-            <option value="09">09 — Setembro</option><option value="10">10 — Outubro</option>
-            <option value="11">11 — Novembro</option><option value="12">12 — Dezembro</option>
-          </select>
-        </div>
-        <div class="setup-field">
-          <label>Ano</label>
-          <input type="text" id="setup-ano" value="2026" maxlength="4" style="width:90px">
-        </div>
-        <button class="btn btn-primary" onclick="iniciarNovaCompetencia()">▶ Iniciar</button>
-      </div>
-    </div>`;
-  atualizarEntityBar();
-}
-
-async function iniciarNovaCompetencia() {
-  const mes = document.getElementById('setup-mes').value;
-  const ano = document.getElementById('setup-ano').value.trim();
-  if (!ano.match(/^\d{4}$/)) { alert('Informe um ano válido.'); return; }
-  await criarIteracao(`${ano}-${mes}`);
-  _view = 'execucao';
   render();
 }
 
@@ -1079,12 +1077,23 @@ function atualizarEntityBar() {
   } else {
     badge.style.display = 'none';
   }
+
+  // Chip de credenciais da execução atual (só na visão de execução)
+  const chip = document.getElementById('cred-chip');
+  const ug = _iter?.entidade?.codigoUg;
+  const c  = credsDaUG(ug);
+  if (_view === 'execucao' && _iter && (c.usuario || c.senha)) {
+    document.getElementById('cred-chip-user').textContent = '👤 ' + (c.usuario || '(sem usuário)');
+    chip.style.display = '';
+  } else {
+    chip.style.display = 'none';
+  }
 }
 
 function labelIteracao(iter) {
   const [ano, mes] = (iter.competencia || '-').split('-');
   const meses = ['','Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-  const entNome = iter.entidade?.nome || _dados.entidade?.nome || '—';
+  const entNome = iter.entidade?.nome || '—';
   return `${entNome} — ${meses[parseInt(mes)] || mes}/${ano} (${iter.iteracao}ª iter.)`;
 }
 
@@ -1153,15 +1162,11 @@ function progresso(iter) {
 }
 
 /* ══════════════════════════════════════════════
-   ITERAÇÃO
+   EXECUÇÃO — selecionar, nova, editar, concluir
 ══════════════════════════════════════════════ */
-async function novaIteracao() {
-  // Cria nova execução SEM fechar a atual — abre tela de seleção de competência
+function novaIteracao() {
   fecharSeletor();
-  _view = 'execucao';
-  _iter = null;   // temporariamente sem seleção para mostrar o setup
-  if (!_dados.entidade) { abrirModalEntidade(); return; }
-  renderizarSetup();
+  abrirModalExec('novo');
 }
 
 async function concluirIteracao() {
@@ -1178,65 +1183,133 @@ async function concluirIteracao() {
 
 function selecionarIteracao(docId) {
   const iter = _dados.historico.find(i => i._docId === docId);
-  if (iter) {
-    _iter = iter;
-    _view = 'execucao';
-    // Se a máquina local ainda não tem entidade configurada, herda da execução
-    if (!_dados.entidade && iter.entidade && iter.entidade.nome) {
-      _dados.entidade = { ...iter.entidade };
-      salvarEntidadeLocal();
-    }
-  }
+  if (iter) { _iter = iter; _view = 'execucao'; }
   fecharSeletor();
   render();
 }
 
 /* ══════════════════════════════════════════════
-   MODAL ENTIDADE
+   MODAL DE EXECUÇÃO (entidade + competência + credenciais)
 ══════════════════════════════════════════════ */
-function abrirModalEntidade() {
-  const e = _dados.entidade || {};
-  document.getElementById('ent-nome').value         = e.nome      || '';
-  document.getElementById('ent-codigo').value       = e.codigo    || '';
-  document.getElementById('ent-codigo-ug').value    = e.codigoUg  || '';
-  document.getElementById('ent-municipio').value    = e.municipio || '';
-  document.getElementById('ent-id').value           = e.idEntidade || '';
-  document.getElementById('ent-usuario').value      = e.usuario   || '';
-  document.getElementById('ent-senha').value        = e.senha     || '';
-  document.getElementById('ent-caminho-resultados').value = e.caminhoResultados || '';
-  document.getElementById('btn-entidade-cancelar').style.display = _dados.entidade ? '' : 'none';
-  document.getElementById('modal-entidade').classList.remove('hidden');
+// Lista de entidades distintas já usadas (mais recentes primeiro)
+function entidadesUsadas() {
+  const vistas = [];
+  for (let k = _dados.historico.length - 1; k >= 0; k--) {
+    const e = _dados.historico[k].entidade;
+    if (!e || !e.nome) continue;
+    if (vistas.some(v => mesmaEntidade(v, e))) continue;
+    vistas.push(e);
+  }
+  return vistas;
 }
 
-function fecharModalEntidade() {
-  document.getElementById('modal-entidade').classList.add('hidden');
+function abrirModalExec(mode) {
+  _execMode = mode;
+  const editar = mode === 'editar';
+  document.getElementById('modal-exec-title').textContent = editar ? '✏️ Editar execução' : '➕ Nova execução';
+  document.getElementById('btn-exec-salvar').textContent  = editar ? '💾 Salvar alterações' : '▶ Criar execução';
+  document.getElementById('exec-picker-wrap').style.display = editar ? 'none' : '';
+
+  let ent = {}, comp = '';
+  if (editar && _iter) { ent = _iter.entidade || {}; comp = _iter.competencia || ''; }
+
+  // Popular o seletor de entidades já usadas (modo novo)
+  if (!editar) {
+    const usadas = entidadesUsadas();
+    const sel = document.getElementById('exec-picker');
+    sel.innerHTML = '<option value="__nova__">➕ Nova entidade…</option>' +
+      usadas.map((e, i) => `<option value="${i}">${escHtml(e.nome)}${e.codigoUg ? ' — UG ' + escHtml(e.codigoUg) : ''}</option>`).join('');
+    sel._usadas = usadas;
+    // Pré-seleciona a entidade mais recente, se houver
+    if (usadas.length) { sel.value = '0'; ent = usadas[0]; }
+    else sel.value = '__nova__';
+  }
+
+  preencherCamposExec(ent, comp);
+  document.getElementById('btn-exec-cancelar').style.display = (editar || _dados.historico.length) ? '' : 'none';
+  document.getElementById('modal-exec').classList.remove('hidden');
+  setTimeout(() => document.getElementById('exec-nome').focus(), 50);
 }
 
-async function salvarEntidade() {
-  const nome = document.getElementById('ent-nome').value.trim();
+function preencherCamposExec(ent, comp) {
+  ent = ent || {};
+  document.getElementById('exec-nome').value      = ent.nome      || '';
+  document.getElementById('exec-ug').value        = ent.codigoUg  || '';
+  document.getElementById('exec-id').value        = ent.idEntidade || '';
+  document.getElementById('exec-municipio').value = ent.municipio || '';
+  document.getElementById('exec-caminho').value   = (_iter && _execMode === 'editar' ? _iter.caminhoResultados : ent.caminhoResultados) || '';
+  // Competência: usa a da execução (editar) ou o mês atual (novo)
+  const hoje = new Date();
+  const [ano, mes] = (comp || `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}`).split('-');
+  document.getElementById('exec-mes').value = mes;
+  document.getElementById('exec-ano').value = ano;
+  // Credenciais locais da UG
+  const c = credsDaUG(ent.codigoUg);
+  document.getElementById('exec-usuario').value = c.usuario || '';
+  document.getElementById('exec-senha').value   = c.senha   || '';
+}
+
+function aoEscolherEntidade() {
+  const sel = document.getElementById('exec-picker');
+  if (sel.value === '__nova__') {
+    preencherCamposExec({}, '');
+    setTimeout(() => document.getElementById('exec-nome').focus(), 30);
+  } else {
+    const ent = (sel._usadas || [])[parseInt(sel.value, 10)];
+    if (ent) preencherCamposExec(ent, document.getElementById('exec-ano').value && document.getElementById('exec-mes').value
+      ? `${document.getElementById('exec-ano').value}-${document.getElementById('exec-mes').value}` : '');
+  }
+}
+
+function fecharModalExec() {
+  document.getElementById('modal-exec').classList.add('hidden');
+}
+
+async function salvarExec() {
+  const nome = document.getElementById('exec-nome').value.trim();
+  const ano  = document.getElementById('exec-ano').value.trim();
+  const mes  = document.getElementById('exec-mes').value;
   if (!nome) { alert('Informe o nome da entidade.'); return; }
-  _dados.entidade = {
+  if (!ano.match(/^\d{4}$/)) { alert('Informe um ano válido (AAAA).'); return; }
+
+  const ug = document.getElementById('exec-ug').value.trim();
+  const entidade = {
     nome,
-    codigo:             document.getElementById('ent-codigo').value.trim(),
-    codigoUg:           document.getElementById('ent-codigo-ug').value.trim(),
-    municipio:          document.getElementById('ent-municipio').value.trim(),
-    idEntidade:         document.getElementById('ent-id').value.trim(),
-    usuario:            document.getElementById('ent-usuario').value.trim(),
-    senha:              document.getElementById('ent-senha').value.trim(),
-    caminhoResultados:  document.getElementById('ent-caminho-resultados').value.trim(),
+    codigoUg:   ug,
+    codigo:     ug,   // compatibilidade com versões anteriores
+    idEntidade: document.getElementById('exec-id').value.trim(),
+    municipio:  document.getElementById('exec-municipio').value.trim(),
   };
-  salvarEntidadeLocal();
-  // Atualiza entidade na iteração ativa no Firestore (SEM credenciais)
-  if (_iter) { _iter.entidade = entidadePublica(); await salvar(); }
-  fecharModalEntidade();
+  const caminho     = document.getElementById('exec-caminho').value.trim();
+  const competencia = `${ano}-${mes}`;
+
+  // Credenciais → salvas SÓ localmente, indexadas por UG
+  const usuario = document.getElementById('exec-usuario').value.trim();
+  const senha   = document.getElementById('exec-senha').value.trim();
+  if (ug && (usuario || senha)) { _creds[ug] = { usuario, senha }; salvarCreds(); }
+
+  if (_execMode === 'editar' && _iter) {
+    _iter.entidade          = entidade;
+    _iter.competencia       = competencia;
+    _iter.caminhoResultados = caminho;
+    await salvar();
+  } else {
+    await criarIteracao(competencia, entidade, caminho);
+    _view = 'execucao';
+  }
+  fecharModalExec();
   render();
 }
 
-/* Entidade sem credenciais — usuário/senha NUNCA vão para o Firestore */
-function entidadePublica() {
-  if (!_dados.entidade) return {};
-  const { usuario, senha, ...pub } = _dados.entidade;
-  return pub;
+/* Copiar credenciais da execução atual */
+function copiarCred(qual) {
+  const ug = _iter?.entidade?.codigoUg;
+  const c  = credsDaUG(ug);
+  const val = qual === 'senha' ? c.senha : c.usuario;
+  if (!val) { toast('Nenhuma ' + (qual === 'senha' ? 'senha' : 'usuário') + ' salvo para esta UG'); return; }
+  navigator.clipboard.writeText(val)
+    .then(() => toast((qual === 'senha' ? '🔑 Senha' : '👤 Usuário') + ' copiado'))
+    .catch(() => alert(val));
 }
 
 /* ══════════════════════════════════════════════
@@ -1355,7 +1428,7 @@ function gerarMarkdown() {
 }
 
 function construirMarkdown(iter) {
-  const e = _dados.entidade || {};
+  const e = iter.entidade || {};
   const [ano, mes] = iter.competencia.split('-');
   const meses = ['','Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
   const numeral = ['','1ª','2ª','3ª','4ª','5ª','6ª','7ª','8ª','9ª'];
@@ -1364,8 +1437,10 @@ function construirMarkdown(iter) {
 
   let md = `# e-Sfinge Tributos — ${e.nome || 'Entidade'}\n`;
   md += `**Competência:** ${meses[parseInt(mes)]}/${ano}`;
-  if (e.codigo) md += ` | **Código:** ${e.codigo}`;
-  md += ` | **Iteração:** ${hn(iter.iteracao)} | **Data:** ${datStr}\n\n---\n\n`;
+  if (e.codigoUg) md += ` | **UG:** ${e.codigoUg}`;
+  md += ` | **Iteração:** ${hn(iter.iteracao)} | **Data:** ${datStr}`;
+  if (iter.linkChamado) md += ` | **Chamado:** ${iter.linkChamado}`;
+  md += `\n\n---\n\n`;
 
   const FASE_ICONS = { gerando:'📤', validando:'🔍', enviando:'📨', finalizando:'🏁' };
 
@@ -1424,7 +1499,7 @@ const FASE_LABELS_MAP = { gerando:'Gerando', validando:'Validando', enviando:'En
 /* ══════════════════════════════════════════════
    INIT
 ══════════════════════════════════════════════ */
-carregarEntidadeLocal();
+carregarCreds();   // credenciais locais por UG
 render();          // mostra a tela de seleção imediatamente (vazia até o Firestore responder)
 iniciarFirebase(); // onSnapshot chamará render() conforme os dados chegam
 </script>
