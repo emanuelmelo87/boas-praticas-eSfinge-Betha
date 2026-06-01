@@ -65,6 +65,12 @@ def executor_page():
     return render_template("executor.html")
 
 
+@app.route("/checklist-tributos")
+@app.route("/checklist-tributos.html")
+def checklist_tributos_page():
+    return render_template("checklist-tributos.html")
+
+
 @app.route("/api/autenticar", methods=["POST"])
 def autenticar():
     body = request.json
