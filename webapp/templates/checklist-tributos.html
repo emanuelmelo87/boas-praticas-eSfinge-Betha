@@ -83,6 +83,7 @@
     .etapa-card.ok        { border-left-color: var(--green); }
     .etapa-card.com_erros { border-left-color: var(--orange); }
     .etapa-card.pendente  { border-left-color: #cbd5e1; }
+    .etapa-card.resolvido { border-left-color: #0891b2; }   /* OK após corrigir erros */
 
     .etapa-header { display: flex; align-items: center; gap: 10px; padding: 13px 16px; }
     .etapa-codigo { font-size: .72rem; font-weight: 700; color: var(--gray); background: var(--gray-bg); padding: 2px 7px; border-radius: 5px; white-space: nowrap; flex-shrink: 0; }
@@ -796,9 +797,16 @@ function renderExecCard(iter) {
 
 function voltarSelecao() {
   fecharSeletor();
+  resetViewerFile();
   _view = 'selecao';
   _iter = null;
   render();
+}
+
+/* Limpa o arquivo de resultado carregado (ao trocar de execução) */
+function resetViewerFile() {
+  _fileHandle = null;
+  if (_blobUrl) { URL.revokeObjectURL(_blobUrl); _blobUrl = null; }
 }
 
 function setFase(fase) {
@@ -830,12 +838,16 @@ function renderizarFase() {
         <div>${renderViewerPanel()}</div>
       </div>`;
     aplicarSplitWidth();
-    // Restaura iframe se já tinha arquivo carregado
+    atualizarViewerHeader();
+    // Restaura iframe se já tinha arquivo carregado nesta sessão
     if (_blobUrl) {
       document.getElementById('viewer-empty').style.display  = 'none';
       document.getElementById('resultado-iframe').style.display = '';
       document.getElementById('resultado-iframe').src = _blobUrl;
       document.getElementById('btn-atualizar').disabled = false;
+    } else {
+      // Tenta reabrir o arquivo salvo desta execução (handle no IndexedDB)
+      restaurarArquivoResultado();
     }
   } else {
     document.getElementById('main-content').innerHTML = stepsHtml;
@@ -843,9 +855,11 @@ function renderizarFase() {
 }
 
 function renderViewerPanel() {
+  const nome = _iter?.caminhoResultados || '';
   return `<div class="viewer-card">
     <div class="viewer-header">
       <span class="viewer-title">📄 Resultado do lote</span>
+      <span class="viewer-ts" id="viewer-file" style="flex:1;color:var(--blue);font-weight:600">${nome ? '🔗 ' + escHtml(nome) : ''}</span>
       <div class="viewer-actions">
         <button class="btn btn-ghost btn-sm" onclick="selecionarArquivoResultado()">📂 Abrir arquivo</button>
         <button class="btn btn-ghost btn-sm" id="btn-atualizar" onclick="atualizarResultado()" disabled>↻ Atualizar</button>
@@ -855,8 +869,9 @@ function renderViewerPanel() {
     <div class="viewer-body">
       <div class="viewer-empty" id="viewer-empty">
         <div class="icon">📄</div>
-        <p>Selecione o arquivo HTML de resultado do lote</p>
+        <p>${nome ? 'Arquivo salvo: <b>' + escHtml(nome) + '</b>' : 'Selecione o arquivo HTML de resultado do lote'}</p>
         <p style="font-size:.75rem;color:#aaa">resultado-consulta-lote-XXXXXX.html</p>
+        <button class="btn btn-primary btn-sm" id="btn-reabrir-arq" onclick="reabrirArquivoSalvo()" style="display:none">↻ Reabrir arquivo salvo</button>
         <button class="btn btn-primary btn-sm" onclick="selecionarArquivoResultado()">📂 Selecionar arquivo</button>
       </div>
       <iframe id="resultado-iframe" style="display:none" sandbox="allow-scripts allow-same-origin"></iframe>
@@ -912,7 +927,12 @@ function resetarSplit() {
 }
 
 function renderEtapaCard(etapa, idx) {
-  const statusIcon = etapa.status === 'ok' ? '✅' : etapa.status === 'com_erros' ? '⚠️' : '⏳';
+  const temErros   = etapa.erros.length > 0;
+  const resolvido  = etapa.status === 'ok' && temErros;   // OK depois de corrigir erros
+  const comErros   = etapa.status === 'com_erros';
+  const statusIcon = etapa.status === 'ok' ? '✅' : comErros ? '⚠️' : '⏳';
+  const cardCls    = resolvido ? 'ok resolvido' : etapa.status;
+
   const errosHtml = etapa.erros.map((err, ei) => `
     <div class="erro-item">
       <div class="erro-item-num">Erro ${ei+1}</div>
@@ -923,23 +943,27 @@ function renderEtapaCard(etapa, idx) {
       <button class="btn-rem-erro" onclick="removerErro('${_fase}',${idx},'${err.id}')" title="Remover erro">×</button>
     </div>`).join('');
 
-  return `
-  <div class="etapa-card ${etapa.status}" id="card-${_fase}-${idx}">
-    <div class="etapa-header">
-      <span class="etapa-codigo">[${etapa.codigo}]</span>
-      <span class="etapa-nome">${escHtml(etapa.nome)}</span>
-      <span class="etapa-status-icon">${statusIcon}</span>
-    </div>
-    <div class="etapa-actions">
-      <button class="btn btn-ok"    onclick="marcarEtapa('${_fase}',${idx},'ok')">✅ OK</button>
-      <button class="btn btn-erros" onclick="marcarEtapaComErros('${_fase}',${idx})">⚠️ Com erros</button>
-    </div>
-    <div class="etapa-undo">
-      <span class="undo-label">${etapa.status === 'ok' ? '✅ Marcado como OK' : '⚠️ Com erros registrados'}</span>
-      <button class="btn-undo" onclick="resetarEtapa('${_fase}',${idx})">↺ Desfazer</button>
-    </div>
-    <div class="erros-section">
+  // Barra de status/undo conforme o estado
+  let undoArea;
+  if (resolvido) {
+    undoArea = `<span class="undo-label" style="color:#0e7490">✅ Resolvido — ${etapa.erros.length} erro(s) no histórico</span>
+      <button class="btn-undo" onclick="reabrirEtapa('${_fase}',${idx})">↩ Reabrir erros</button>
+      <button class="btn-undo" onclick="resetarEtapa('${_fase}',${idx})">↺ Limpar</button>`;
+  } else if (comErros) {
+    undoArea = `<span class="undo-label">⚠️ Com erros registrados</span>
+      <button class="btn-undo" onclick="resetarEtapa('${_fase}',${idx})">↺ Desfazer</button>`;
+  } else {
+    undoArea = `<span class="undo-label">✅ Marcado como OK</span>
+      <button class="btn-undo" onclick="resetarEtapa('${_fase}',${idx})">↺ Desfazer</button>`;
+  }
+
+  // Seção de erros: visível quando com_erros (edição) OU resolvido (histórico)
+  const mostrarErros = comErros || resolvido;
+  const errosSection = `
+    <div class="erros-section" style="display:${mostrarErros ? 'block' : 'none'}${resolvido ? ';background:#f0fdfa' : ''}">
+      ${resolvido ? `<div style="font-size:.68rem;font-weight:700;color:#0e7490;text-transform:uppercase;letter-spacing:.03em;margin-bottom:8px">✔ Resolvido — histórico de erros</div>` : ''}
       ${errosHtml}
+      ${comErros ? `
       <div class="erro-form hidden" id="form-${_fase}-${idx}">
         <div style="font-size:.78rem;font-weight:700;color:var(--orange);margin-bottom:8px">➕ Novo erro</div>
         <label style="font-size:.7rem;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Descrição do erro</label>
@@ -951,9 +975,48 @@ function renderEtapaCard(etapa, idx) {
           <button class="btn btn-ghost btn-sm" onclick="cancelarFormErro('${_fase}',${idx})">Cancelar</button>
         </div>
       </div>
-      <button class="btn btn-erros btn-sm" id="btn-add-${_fase}-${idx}" onclick="mostrarFormErro('${_fase}',${idx})" style="margin-top:${etapa.erros.length ? '4' : '0'}px">+ Adicionar erro</button>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:${temErros ? '4' : '0'}px">
+        <button class="btn btn-erros btn-sm" id="btn-add-${_fase}-${idx}" onclick="mostrarFormErro('${_fase}',${idx})">+ Adicionar erro</button>
+        <button class="btn btn-ok btn-sm" onclick="marcarResolvido('${_fase}',${idx})" title="Os erros ficam salvos como histórico">✅ Corrigido — marcar como OK</button>
+      </div>` : ''}
+    </div>`;
+
+  return `
+  <div class="etapa-card ${cardCls}" id="card-${_fase}-${idx}">
+    <div class="etapa-header">
+      <span class="etapa-codigo">[${etapa.codigo}]</span>
+      <span class="etapa-nome">${escHtml(etapa.nome)}</span>
+      <span class="etapa-status-icon">${statusIcon}</span>
     </div>
+    <div class="etapa-actions">
+      <button class="btn btn-ok"    onclick="marcarEtapa('${_fase}',${idx},'ok')">✅ OK</button>
+      <button class="btn btn-erros" onclick="marcarEtapaComErros('${_fase}',${idx})">⚠️ Com erros</button>
+    </div>
+    <div class="etapa-undo">${undoArea}</div>
+    ${errosSection}
   </div>`;
+}
+
+/* Etapa com erros foi corrigida → vira OK, mas mantém os erros como histórico */
+async function marcarResolvido(fase, idx) {
+  const etapa = _iter.fases[fase][idx];
+  if (!etapa) return;
+  etapa.status = 'ok';   // mantém etapa.erros
+  await salvar();
+  renderizarFase();
+  atualizarTabs();
+  atualizarBarraInferior();
+}
+
+/* Reabrir uma etapa resolvida para editar/adicionar erros novamente */
+async function reabrirEtapa(fase, idx) {
+  const etapa = _iter.fases[fase][idx];
+  if (!etapa) return;
+  etapa.status = 'com_erros';
+  await salvar();
+  renderizarFase();
+  atualizarTabs();
+  atualizarBarraInferior();
 }
 
 function marcarEtapaComErros(fase, idx) {
@@ -980,6 +1043,47 @@ function confirmarAdicionarErro(fase, idx) {
   adicionarErro(fase, idx, desc, sol);
 }
 
+/* ── Persistência do arquivo de resultado ──
+   O caminho/nome vai para a nuvem (Firestore, em iter.caminhoResultados) e o
+   handle do arquivo fica no IndexedDB local, para reabrir sem re-navegar. */
+const IDB_NAME = 'checklist-files', IDB_STORE = 'handles';
+function _idb() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open(IDB_NAME, 1);
+    r.onupgradeneeded = () => r.result.createObjectStore(IDB_STORE);
+    r.onsuccess = () => res(r.result);
+    r.onerror   = () => rej(r.error);
+  });
+}
+async function idbSetHandle(key, handle) {
+  if (!key) return;
+  try {
+    const db = await _idb();
+    await new Promise((res, rej) => {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).put(handle, key);
+      tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+    });
+  } catch (e) { console.warn('idb set', e); }
+}
+async function idbGetHandle(key) {
+  if (!key) return null;
+  try {
+    const db = await _idb();
+    return await new Promise((res, rej) => {
+      const tx = db.transaction(IDB_STORE, 'readonly');
+      const rq = tx.objectStore(IDB_STORE).get(key);
+      rq.onsuccess = () => res(rq.result || null);
+      rq.onerror   = () => rej(rq.error);
+    });
+  } catch { return null; }
+}
+
+function atualizarViewerHeader() {
+  const el = document.getElementById('viewer-file');
+  if (el) el.innerHTML = _iter?.caminhoResultados ? '🔗 ' + escHtml(_iter.caminhoResultados) : '';
+}
+
 /* ── Viewer de resultado do lote ── */
 async function selecionarArquivoResultado() {
   // File System Access API (Chrome/Edge) — mantém handle para re-leitura
@@ -990,6 +1094,12 @@ async function selecionarArquivoResultado() {
         multiple: false,
       });
       _fileHandle = handle;
+      if (_iter) {
+        await idbSetHandle(_iter._docId, handle);          // lembra o arquivo localmente
+        _iter.caminhoResultados = handle.name;             // salva o nome na nuvem
+        await salvar();
+        atualizarViewerHeader();
+      }
       await atualizarResultado();
       return;
     } catch (e) {
@@ -1001,9 +1111,48 @@ async function selecionarArquivoResultado() {
   input.type = 'file'; input.accept = '.html,.htm';
   input.onchange = async () => {
     if (!input.files[0]) return;
+    if (_iter) { _iter.caminhoResultados = input.files[0].name; await salvar(); atualizarViewerHeader(); }
     await _carregarFileObject(input.files[0]);
   };
   input.click();
+}
+
+/* Tenta reabrir o arquivo salvo desta execução ao entrar na fase Enviando */
+async function restaurarArquivoResultado() {
+  if (!_iter) return;
+  const handle = await idbGetHandle(_iter._docId);
+  const btn = document.getElementById('btn-reabrir-arq');
+  if (!handle) return;
+  try {
+    // Se a permissão já está concedida, recarrega automaticamente
+    const perm = handle.queryPermission ? await handle.queryPermission({ mode: 'read' }) : 'prompt';
+    if (perm === 'granted') {
+      _fileHandle = handle;
+      await atualizarResultado();
+    } else if (btn) {
+      btn.style.display = '';   // precisa de 1 clique para reconceder permissão
+    }
+  } catch (e) {
+    if (btn) btn.style.display = '';
+  }
+}
+
+/* Reabre o arquivo salvo pedindo permissão (clique do usuário) */
+async function reabrirArquivoSalvo() {
+  if (!_iter) return;
+  const handle = await idbGetHandle(_iter._docId);
+  if (!handle) { selecionarArquivoResultado(); return; }
+  try {
+    if (handle.requestPermission) {
+      const perm = await handle.requestPermission({ mode: 'read' });
+      if (perm !== 'granted') { toast('Permissão negada'); return; }
+    }
+    _fileHandle = handle;
+    await atualizarResultado();
+  } catch (e) {
+    toast('Não foi possível reabrir — selecione o arquivo novamente');
+    selecionarArquivoResultado();
+  }
 }
 
 async function atualizarResultado() {
@@ -1191,6 +1340,7 @@ async function concluirIteracao() {
 
 function selecionarIteracao(docId) {
   const iter = _dados.historico.find(i => i._docId === docId);
+  if (iter && iter._docId !== _iter?._docId) resetViewerFile();  // troca de execução → limpa arquivo
   if (iter) { _iter = iter; _view = 'execucao'; }
   fecharSeletor();
   render();
@@ -1481,8 +1631,9 @@ function construirMarkdown(iter) {
     md += `## ${FASE_ICONS[fase]} ${FASE_LABELS[fase]}\n\n`;
     etapas.forEach(etapa => {
       if (etapa.status === 'pendente') return;
+      const resolvido = etapa.status === 'ok' && etapa.erros.length > 0;
       const icone = etapa.status === 'ok' ? '✅' : '⚠️';
-      const label = etapa.status === 'ok' ? 'OK' : 'COM ERROS';
+      const label = resolvido ? 'RESOLVIDO' : (etapa.status === 'ok' ? 'OK' : 'COM ERROS');
       md += `${icone} **[${etapa.codigo}]** ${etapa.nome} — *${label}*\n`;
       if (etapa.erros.length) {
         etapa.erros.forEach((err, i) => {
