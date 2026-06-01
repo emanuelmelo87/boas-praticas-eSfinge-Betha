@@ -125,6 +125,21 @@
     .erro-form textarea:focus, .erro-form input:focus { outline: none; border-color: var(--orange); }
     .erro-form-row { display: flex; gap: 6px; }
 
+    /* ── Split layout (Enviando) ── */
+    .split-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+    @media (max-width: 800px) { .split-layout { grid-template-columns: 1fr; } }
+
+    .viewer-card { background: #fff; border-radius: 10px; box-shadow: var(--shadow); overflow: hidden; position: sticky; top: 10px; }
+    .viewer-header { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--border); background: #f8fafc; flex-wrap: wrap; }
+    .viewer-title  { font-size: .82rem; font-weight: 700; color: var(--blue); flex: 1; }
+    .viewer-actions { display: flex; align-items: center; gap: 6px; }
+    .viewer-ts { font-size: .68rem; color: var(--gray); }
+    .viewer-body { height: 600px; position: relative; }
+    .viewer-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 10px; color: var(--gray); text-align: center; padding: 20px; }
+    .viewer-empty .icon { font-size: 2.5rem; }
+    .viewer-empty p { font-size: .83rem; }
+    #resultado-iframe { width: 100%; height: 100%; border: none; display: block; }
+
     /* ── Bottom bar ── */
     .bottom-bar {
       position: fixed; bottom: 0; left: 0; right: 0;
@@ -350,9 +365,11 @@ const FASES = ['gerando','validando','enviando','finalizando'];
 /* ══════════════════════════════════════════════
    ESTADO
 ══════════════════════════════════════════════ */
-let _dados = { entidade: null, historico: [] };
-let _iter  = null;   // iteração ativa (ref em _dados.historico)
-let _fase  = 'gerando';
+let _dados      = { entidade: null, historico: [] };
+let _iter       = null;   // iteração ativa (ref em _dados.historico)
+let _fase       = 'gerando';
+let _fileHandle = null;   // File System Access API handle
+let _blobUrl    = null;   // URL do blob atual do iframe
 
 /* ══════════════════════════════════════════════
    FIREBASE — INICIALIZAÇÃO E SINCRONIZAÇÃO
@@ -545,9 +562,47 @@ function setFase(fase) {
 
 function renderizarFase() {
   if (!_iter) return;
-  const etapas = _iter.fases[_fase];
-  const html = etapas.map((e, idx) => renderEtapaCard(e, idx)).join('');
-  document.getElementById('main-content').innerHTML = html;
+  const etapas   = _iter.fases[_fase];
+  const stepsHtml = etapas.map((e, idx) => renderEtapaCard(e, idx)).join('');
+
+  if (_fase === 'enviando') {
+    document.getElementById('main-content').innerHTML = `
+      <div class="split-layout">
+        <div class="split-steps">${stepsHtml}</div>
+        <div>${renderViewerPanel()}</div>
+      </div>`;
+    // Restaura iframe se já tinha arquivo carregado
+    if (_blobUrl) {
+      document.getElementById('viewer-empty').style.display  = 'none';
+      document.getElementById('resultado-iframe').style.display = '';
+      document.getElementById('resultado-iframe').src = _blobUrl;
+      document.getElementById('btn-atualizar').disabled = false;
+    }
+  } else {
+    document.getElementById('main-content').innerHTML = stepsHtml;
+  }
+}
+
+function renderViewerPanel() {
+  return `<div class="viewer-card">
+    <div class="viewer-header">
+      <span class="viewer-title">📄 Resultado do lote</span>
+      <div class="viewer-actions">
+        <button class="btn btn-ghost btn-sm" onclick="selecionarArquivoResultado()">📂 Abrir arquivo</button>
+        <button class="btn btn-ghost btn-sm" id="btn-atualizar" onclick="atualizarResultado()" disabled>↻ Atualizar</button>
+        <span class="viewer-ts" id="viewer-ts"></span>
+      </div>
+    </div>
+    <div class="viewer-body">
+      <div class="viewer-empty" id="viewer-empty">
+        <div class="icon">📄</div>
+        <p>Selecione o arquivo HTML de resultado do lote</p>
+        <p style="font-size:.75rem;color:#aaa">resultado-consulta-lote-XXXXXX.html</p>
+        <button class="btn btn-primary btn-sm" onclick="selecionarArquivoResultado()">📂 Selecionar arquivo</button>
+      </div>
+      <iframe id="resultado-iframe" style="display:none" sandbox="allow-scripts allow-same-origin"></iframe>
+    </div>
+  </div>`;
 }
 
 function renderEtapaCard(etapa, idx) {
@@ -617,6 +672,64 @@ function confirmarAdicionarErro(fase, idx) {
   const sol  = document.getElementById(`ferr-sol-${fase}-${idx}`)?.value  || '';
   if (!desc.trim()) { alert('Descreva o erro antes de adicionar.'); return; }
   adicionarErro(fase, idx, desc, sol);
+}
+
+/* ── Viewer de resultado do lote ── */
+async function selecionarArquivoResultado() {
+  // File System Access API (Chrome/Edge) — mantém handle para re-leitura
+  if (window.showOpenFilePicker) {
+    try {
+      const [handle] = await window.showOpenFilePicker({
+        types: [{ description: 'Resultado HTML', accept: { 'text/html': ['.html', '.htm'] } }],
+        multiple: false,
+      });
+      _fileHandle = handle;
+      await atualizarResultado();
+      return;
+    } catch (e) {
+      if (e.name === 'AbortError') return; // usuário cancelou
+    }
+  }
+  // Fallback: input file clássico (Firefox / outros)
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = '.html,.htm';
+  input.onchange = async () => {
+    if (!input.files[0]) return;
+    await _carregarFileObject(input.files[0]);
+  };
+  input.click();
+}
+
+async function atualizarResultado() {
+  try {
+    let file;
+    if (_fileHandle) {
+      file = await _fileHandle.getFile();
+    } else return;
+    await _carregarFileObject(file);
+  } catch (e) {
+    toast('Erro ao atualizar: ' + e.message);
+  }
+}
+
+async function _carregarFileObject(file) {
+  const content = await file.text();
+  // Libera blob anterior
+  if (_blobUrl) URL.revokeObjectURL(_blobUrl);
+  _blobUrl = URL.createObjectURL(new Blob([content], { type: 'text/html' }));
+
+  const iframe = document.getElementById('resultado-iframe');
+  const empty  = document.getElementById('viewer-empty');
+  const btnAt  = document.getElementById('btn-atualizar');
+  const ts     = document.getElementById('viewer-ts');
+
+  if (iframe) {
+    iframe.src = _blobUrl;
+    iframe.style.display = '';
+  }
+  if (empty)  empty.style.display  = 'none';
+  if (btnAt)  btnAt.disabled = false;
+  if (ts)     ts.textContent = `Atualizado: ${new Date().toLocaleTimeString('pt-BR')}`;
 }
 
 /* ── Tabs update ── */
