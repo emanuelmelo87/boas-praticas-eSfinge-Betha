@@ -1,0 +1,1455 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cadastro de Erros e Soluções — e-Sfinge TCE/SC</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+
+  <!-- Firebase 10 compat SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --blue:       #1a3a6b;
+      --blue-mid:   #1e4a8a;
+      --blue-light: #e8f0fe;
+      --green:      #15803d;
+      --green-bg:   #dcfce7;
+      --red:        #991b1b;
+      --red-bg:     #fee2e2;
+      --amber:      #92400e;
+      --amber-bg:   #fef3c7;
+      --purple:     #6d28d9;
+      --purple-bg:  #ede9fe;
+      --teal:       #0e7490;
+      --teal-bg:    #cffafe;
+      --gray:       #6b7280;
+      --gray-bg:    #f0f2f5;
+      --border:     #e2e8f0;
+      --shadow:     0 2px 10px rgba(0,0,0,.07);
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--gray-bg);
+      min-height: 100vh;
+      color: #1a1a2e;
+    }
+
+    /* ── Topbar ── */
+    .topbar {
+      background: var(--blue);
+      color: #fff;
+      padding: 14px 28px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.9rem;
+    }
+    .topbar a { color: rgba(255,255,255,.7); text-decoration: none; font-size: 0.82rem; }
+    .topbar a:hover { color: #fff; }
+    .topbar-sep { color: rgba(255,255,255,.3); margin: 0 4px; }
+    .topbar-title { font-weight: 700; }
+    .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+
+    .db-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      opacity: .9;
+    }
+    .db-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: #fbbf24;
+      box-shadow: 0 0 5px #fbbf24;
+      animation: blink 1.2s infinite;
+    }
+    .db-dot.ok     { background: #4ade80; box-shadow: 0 0 5px #4ade80; animation: none; }
+    .db-dot.error  { background: #f87171; box-shadow: 0 0 5px #f87171; animation: none; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+    .btn-topo {
+      background: rgba(255,255,255,.15);
+      border: 1px solid rgba(255,255,255,.25);
+      color: #fff;
+      border-radius: 7px;
+      padding: 5px 12px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      white-space: nowrap;
+    }
+    .btn-topo:hover { background: rgba(255,255,255,.25); }
+
+    /* ── Setup Banner ── */
+    .setup-banner {
+      background: linear-gradient(135deg, #78350f, #b45309);
+      color: #fff;
+      padding: 18px 28px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .setup-banner-icon { font-size: 1.8rem; }
+    .setup-banner-body { flex: 1; min-width: 220px; }
+    .setup-banner-body h3 { font-size: 0.95rem; margin-bottom: 4px; }
+    .setup-banner-body p  { font-size: 0.8rem; opacity: .9; }
+    .btn-configurar {
+      background: #fff;
+      color: #92400e;
+      border: none;
+      border-radius: 8px;
+      padding: 9px 18px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn-configurar:hover { background: #fef3c7; }
+
+    /* ── Layout ── */
+    .layout {
+      display: grid;
+      grid-template-columns: 390px 1fr;
+      gap: 20px;
+      max-width: 1320px;
+      margin: 24px auto;
+      padding: 0 20px 48px;
+      align-items: start;
+    }
+    @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+
+    /* ── Panel ── */
+    .panel {
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .panel-sticky { position: sticky; top: 20px; }
+    .panel-head {
+      padding: 16px 20px 13px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .panel-head h2 { font-size: 0.97rem; font-weight: 700; color: var(--blue); }
+    .panel-body { padding: 18px 20px; }
+
+    /* ── Form ── */
+    .fg { display: flex; flex-direction: column; gap: 5px; margin-bottom: 13px; }
+    .fg label {
+      font-size: 0.73rem;
+      font-weight: 700;
+      color: #374151;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+    .fg label .req { color: #dc2626; }
+    .fg input, .fg textarea, .fg select {
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 11px;
+      font-size: 0.85rem;
+      font-family: inherit;
+      color: #1a1a2e;
+      transition: border-color .15s;
+      background: #fff;
+    }
+    .fg input:focus, .fg textarea:focus, .fg select:focus {
+      outline: none; border-color: var(--blue-mid);
+    }
+    .fg textarea { resize: vertical; }
+
+    /* ── Nova Versão Box ── */
+    .nova-versao-box {
+      background: #ecfeff;
+      border: 1.5px solid #67e8f9;
+      border-radius: 10px;
+      padding: 13px 14px;
+      margin-bottom: 13px;
+    }
+    .nova-versao-head {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--teal);
+      margin-bottom: 5px;
+    }
+    .nova-versao-desc {
+      font-size: 0.77rem;
+      color: #0c6c88;
+      line-height: 1.5;
+      margin-bottom: 10px;
+    }
+
+    /* ── Form Actions ── */
+    .form-actions { display: flex; gap: 8px; margin-top: 4px; }
+    .btn-primary {
+      flex: 1;
+      background: var(--blue);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 0.87rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .btn-primary:hover:not(:disabled) { background: var(--blue-mid); }
+    .btn-primary:disabled { opacity: .6; cursor: default; }
+    .btn-secondary {
+      background: #f1f5f9;
+      color: #475569;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-secondary:hover { background: #e2e8f0; }
+
+    /* ── List Toolbar ── */
+    .list-toolbar {
+      padding: 13px 18px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .list-toolbar input[type=search] {
+      flex: 1;
+      min-width: 140px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      padding: 7px 11px;
+      font-size: 0.83rem;
+      font-family: inherit;
+    }
+    .list-toolbar input[type=search]:focus { outline: none; border-color: var(--blue); }
+    .list-toolbar select {
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      padding: 7px 10px;
+      font-size: 0.82rem;
+      font-family: inherit;
+      background: #fff;
+      color: #1a1a2e;
+    }
+    .list-count {
+      font-size: 0.75rem;
+      color: var(--gray);
+      white-space: nowrap;
+    }
+
+    /* ── Error Cards ── */
+    .list-body {
+      padding: 16px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 13px;
+    }
+    .empty-state {
+      text-align: center;
+      padding: 44px 20px;
+      color: var(--gray);
+      font-size: 0.87rem;
+    }
+    .empty-icon { font-size: 2.5rem; margin-bottom: 10px; }
+
+    .erro-card {
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      padding: 15px;
+      background: #fff;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .erro-card:hover { border-color: #c7d2e8; box-shadow: 0 2px 8px rgba(26,58,107,.07); }
+    .erro-card.editando { border-color: var(--blue-mid); box-shadow: 0 0 0 3px rgba(30,74,138,.12); }
+
+    .card-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .card-badges { display: flex; flex-wrap: wrap; gap: 5px; flex: 1; }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 9px;
+      border-radius: 99px;
+      font-size: 0.69rem;
+      font-weight: 700;
+    }
+    .badge-ferr { background: var(--purple-bg); color: var(--purple); }
+    .badge-base { background: var(--blue-light); color: var(--blue-mid); }
+
+    .card-actions { display: flex; gap: 4px; flex-shrink: 0; }
+    .btn-icon {
+      background: none;
+      border: 1.5px solid var(--border);
+      border-radius: 7px;
+      padding: 5px 8px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      color: var(--gray);
+      transition: background .12s, border-color .12s;
+    }
+    .btn-icon:hover { background: var(--gray-bg); border-color: #9ca3af; }
+    .btn-icon.danger:hover { background: var(--red-bg); border-color: #fca5a5; color: var(--red); }
+
+    .card-erro-text {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #111827;
+      line-height: 1.45;
+    }
+
+    /* ── Solução Box ── */
+    .card-solucao {
+      background: var(--green-bg);
+      border-radius: 9px;
+      padding: 10px 12px;
+    }
+    .solucao-head {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin-bottom: 7px;
+    }
+    .solucao-label {
+      font-size: 0.69rem;
+      font-weight: 700;
+      color: #166534;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+    .versao-badge {
+      background: rgba(21,128,61,.15);
+      color: var(--green);
+      border-radius: 99px;
+      padding: 1px 8px;
+      font-size: 0.68rem;
+      font-weight: 700;
+    }
+    .btn-historico {
+      margin-left: auto;
+      background: rgba(21,128,61,.1);
+      border: 1px solid rgba(21,128,61,.22);
+      color: var(--green);
+      border-radius: 99px;
+      padding: 2px 9px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: background .12s;
+    }
+    .btn-historico:hover { background: rgba(21,128,61,.2); }
+
+    .solucao-text {
+      font-size: 0.83rem;
+      color: #1a1a2e;
+      line-height: 1.55;
+    }
+    .solucao-indicado {
+      font-size: 0.7rem;
+      color: #4b7a59;
+      margin-top: 5px;
+    }
+
+    /* ── Extras ── */
+    .card-extra { display: flex; flex-direction: column; gap: 7px; }
+    .card-field {
+      font-size: 0.8rem;
+      color: #374151;
+      line-height: 1.45;
+    }
+    .card-field-label {
+      display: block;
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      color: #6b7280;
+      margin-bottom: 2px;
+    }
+    .card-dica {
+      background: var(--amber-bg);
+      border-radius: 7px;
+      padding: 7px 10px;
+      font-size: 0.78rem;
+      color: var(--amber);
+      line-height: 1.45;
+    }
+
+    .card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.69rem;
+      color: #9ca3af;
+      padding-top: 7px;
+      border-top: 1px solid var(--border);
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+
+    /* ── Modals ── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.46);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal-box {
+      background: #fff;
+      border-radius: 14px;
+      width: 100%;
+      max-width: 520px;
+      max-height: 86vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 24px 60px rgba(0,0,0,.22);
+    }
+    .modal-box.lg { max-width: 700px; }
+    .modal-head {
+      padding: 17px 20px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .modal-head h3 { font-size: 0.97rem; font-weight: 700; }
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 1.25rem;
+      color: var(--gray);
+      cursor: pointer;
+      padding: 0 4px;
+      line-height: 1;
+    }
+    .modal-body { padding: 20px; overflow-y: auto; flex: 1; }
+    .modal-foot {
+      padding: 13px 20px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      flex-shrink: 0;
+    }
+    .btn-danger {
+      background: #dc2626;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 9px 20px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .btn-danger:hover { background: #b91c1c; }
+
+    /* ── Config Modal ── */
+    .config-guide {
+      background: var(--gray-bg);
+      border-radius: 9px;
+      padding: 14px 16px;
+      margin-bottom: 16px;
+    }
+    .config-guide p {
+      font-size: 0.8rem;
+      color: #374151;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+    .config-guide ol {
+      font-size: 0.79rem;
+      color: #374151;
+      margin-left: 18px;
+      line-height: 1.9;
+    }
+    .config-guide code {
+      background: #e2e8f0;
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-size: 0.76rem;
+    }
+    .rules-warn {
+      margin-top: 12px;
+      background: var(--amber-bg);
+      border-radius: 7px;
+      padding: 9px 12px;
+      font-size: 0.76rem;
+      color: var(--amber);
+      line-height: 1.5;
+    }
+    .rules-code {
+      background: #1e293b;
+      color: #e2e8f0;
+      border-radius: 7px;
+      padding: 10px 12px;
+      font-size: 0.72rem;
+      font-family: monospace;
+      margin-top: 8px;
+      white-space: pre;
+      overflow-x: auto;
+    }
+    .config-textarea {
+      width: 100%;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 11px;
+      font-size: 0.78rem;
+      font-family: monospace;
+      resize: vertical;
+      min-height: 130px;
+      color: #1a1a2e;
+    }
+    .config-textarea:focus { outline: none; border-color: var(--blue-mid); }
+    .config-err {
+      margin-top: 7px;
+      font-size: 0.78rem;
+      color: #b91c1c;
+      background: var(--red-bg);
+      border-radius: 6px;
+      padding: 7px 10px;
+    }
+
+    /* ── History Timeline ── */
+    .erro-ref {
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-radius: 8px;
+      padding: 10px 13px;
+      font-size: 0.83rem;
+      margin-bottom: 18px;
+      line-height: 1.45;
+      color: #1a1a2e;
+    }
+    .erro-ref strong {
+      display: block;
+      font-size: 0.69rem;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: #92400e;
+      margin-bottom: 3px;
+    }
+
+    .timeline { display: flex; flex-direction: column; }
+    .tl-item {
+      display: flex;
+      gap: 14px;
+      padding-bottom: 18px;
+      position: relative;
+    }
+    .tl-item:not(:last-child)::before {
+      content: '';
+      position: absolute;
+      left: 15px;
+      top: 33px;
+      bottom: 0;
+      width: 2px;
+      background: var(--border);
+    }
+    .tl-marker {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--gray-bg);
+      border: 2px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.66rem;
+      font-weight: 700;
+      color: var(--gray);
+      flex-shrink: 0;
+      z-index: 1;
+    }
+    .tl-item.atual .tl-marker {
+      background: var(--green-bg);
+      border-color: #86efac;
+      color: var(--green);
+    }
+    .tl-content { flex: 1; padding-top: 4px; }
+    .tl-meta {
+      font-size: 0.74rem;
+      color: var(--gray);
+      margin-bottom: 6px;
+      line-height: 1.4;
+    }
+    .tl-meta strong { color: #1a1a2e; }
+    .badge-atual {
+      display: inline-flex;
+      background: var(--green-bg);
+      color: var(--green);
+      border-radius: 99px;
+      padding: 1px 8px;
+      font-size: 0.66rem;
+      font-weight: 700;
+      margin-left: 6px;
+      vertical-align: middle;
+    }
+    .tl-solucao {
+      font-size: 0.82rem;
+      color: #374151;
+      line-height: 1.55;
+      background: var(--gray-bg);
+      border-radius: 7px;
+      padding: 8px 11px;
+    }
+    .tl-item.atual .tl-solucao { background: var(--green-bg); }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #1a1a2e;
+      color: #fff;
+      padding: 11px 18px;
+      border-radius: 9px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      box-shadow: 0 4px 20px rgba(0,0,0,.25);
+      z-index: 200;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity .2s, transform .2s;
+      max-width: 340px;
+      pointer-events: none;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.ok    { background: #15803d; }
+    .toast.err   { background: #b91c1c; }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════
+     TOPBAR
+════════════════════════════════════════════════ -->
+<div class="topbar">
+  <a href="./">← Central</a>
+  <span class="topbar-sep">›</span>
+  <span class="topbar-title">Cadastro de Erros e Soluções</span>
+  <div class="topbar-right" style="display:none">
+    <div class="db-status">
+      <div class="db-dot" id="db-dot"></div>
+      <span id="db-txt">Aguardando...</span>
+    </div>
+    <button class="btn-topo" id="btn-open-config">⚙️ Firebase</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     SETUP BANNER (aparece só quando não configurado)
+════════════════════════════════════════════════ -->
+<div id="setup-banner" style="display:none" class="setup-banner">
+  <div class="setup-banner-icon">🔥</div>
+  <div class="setup-banner-body">
+    <h3>Firebase não configurado</h3>
+    <p>Configure um projeto Firebase Firestore para persistir os dados na nuvem e compartilhá-los com a equipe.</p>
+  </div>
+  <button class="btn-configurar" id="btn-banner-config">⚙️ Configurar agora</button>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     LAYOUT PRINCIPAL
+════════════════════════════════════════════════ -->
+<div class="layout">
+
+  <!-- ── Painel Formulário ── -->
+  <div class="panel panel-sticky">
+    <div class="panel-head">
+      <h2 id="form-titulo">➕ Novo Erro</h2>
+    </div>
+    <div class="panel-body">
+      <form id="form-erro" autocomplete="off">
+
+        <!-- Banner: importado da consulta de lotes -->
+        <div id="banner-importado" style="display:none;background:#eff6ff;border:1.5px solid #93c5fd;border-radius:9px;padding:10px 13px;margin-bottom:13px;display:none;flex-direction:column;gap:3px;">
+          <div style="font-size:.78rem;font-weight:700;color:#1d4ed8;display:flex;align-items:center;gap:6px;">
+            📋 Importado da Consulta de Lotes
+          </div>
+          <div style="font-size:.76rem;color:#374151;">Formulário pré-preenchido. Complete os campos e salve.</div>
+        </div>
+        <!-- Banner: erro já cadastrado -->
+        <div id="banner-existente" style="display:none;background:#dcfce7;border:1.5px solid #86efac;border-radius:9px;padding:10px 13px;margin-bottom:13px;flex-direction:column;gap:4px;">
+          <div style="font-size:.78rem;font-weight:700;color:#15803d;display:flex;align-items:center;gap:6px;">
+            ✅ Solução já cadastrada para este erro
+          </div>
+          <div id="banner-existente-txt" style="font-size:.76rem;color:#166534;"></div>
+          <button id="banner-existente-ir" style="background:none;border:none;font-size:.76rem;color:#15803d;text-decoration:underline;cursor:pointer;text-align:left;padding:0;width:fit-content;">
+            Ver registro →
+          </button>
+        </div>
+
+        <div class="fg">
+          <label for="f-erro">Mensagem de Erro <span class="req">*</span></label>
+          <textarea id="f-erro" rows="3" required placeholder="Descreva a mensagem de erro exibida..."></textarea>
+        </div>
+
+        <div class="fg">
+          <label for="f-registrado">Registrado por</label>
+          <input type="text" id="f-registrado" placeholder="Seu nome">
+        </div>
+
+        <div class="fg">
+          <label for="f-base">Base / Sistema</label>
+          <input type="text" id="f-base" placeholder="Ex: Tributos, Arrecadação...">
+        </div>
+
+        <div class="fg">
+          <label for="f-ferramenta">Ferramenta que resolve</label>
+          <input type="text" id="f-ferramenta" placeholder="Nome da ferramenta...">
+        </div>
+
+        <div class="fg">
+          <label for="f-solucao">Solução <span class="req">*</span></label>
+          <textarea id="f-solucao" rows="4" required placeholder="Como resolver este erro..."></textarea>
+        </div>
+
+        <!-- Box: nova versão (aparece ao editar com solução alterada) -->
+        <div id="nova-versao-box" class="nova-versao-box" style="display:none">
+          <div class="nova-versao-head">🔄 Nova versão da solução detectada</div>
+          <p class="nova-versao-desc">
+            A solução foi modificada. Informe quem está indicando esta nova versão — isso cria um registro histórico da mudança.
+          </p>
+          <div class="fg" style="margin-bottom:0">
+            <label for="f-indicado">Indicado por <span class="req">*</span></label>
+            <input type="text" id="f-indicado" placeholder="Seu nome">
+          </div>
+        </div>
+
+        <div class="fg">
+          <label for="f-como">Como usar a ferramenta</label>
+          <textarea id="f-como" rows="3" placeholder="Passo a passo..."></textarea>
+        </div>
+
+        <div class="fg">
+          <label for="f-dicas">Dicas de uso</label>
+          <textarea id="f-dicas" rows="2" placeholder="Observações, atalhos, cuidados..."></textarea>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn-primary" id="btn-salvar">💾 Salvar</button>
+          <button type="button" class="btn-secondary" id="btn-cancelar" style="display:none">Cancelar</button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Painel Lista ── -->
+  <div class="panel">
+    <div class="list-toolbar">
+      <input type="search" id="busca" placeholder="🔍 Buscar erro, solução, ferramenta...">
+      <select id="filtro-ferr">
+        <option value="">Todas ferramentas</option>
+      </select>
+      <span class="list-count" id="list-count">—</span>
+    </div>
+    <div class="list-body" id="lista">
+      <div class="empty-state">
+        <div class="empty-icon">📚</div>
+        <p>Nenhum registro ainda.</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     MODAL: HISTÓRICO DE VERSÕES
+════════════════════════════════════════════════ -->
+<div id="modal-hist" class="modal-overlay" style="display:none">
+  <div class="modal-box lg">
+    <div class="modal-head">
+      <h3>📜 Histórico de Soluções</h3>
+      <button class="modal-close" data-close="modal-hist">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="hist-erro-ref" class="erro-ref"></div>
+      <div id="hist-timeline" class="timeline"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-secondary" data-close="modal-hist">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     MODAL: CONFIRMAR EXCLUSÃO
+════════════════════════════════════════════════ -->
+<div id="modal-del" class="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3>⚠️ Confirmar exclusão</h3>
+      <button class="modal-close" data-close="modal-del">×</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:.88rem; line-height:1.6;">Tem certeza que deseja excluir este registro? Todo o histórico de versões será perdido e esta ação <strong>não pode ser desfeita</strong>.</p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-secondary" data-close="modal-del">Cancelar</button>
+      <button class="btn-danger" id="btn-confirmar-del">Excluir</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     MODAL: CONFIGURAÇÃO FIREBASE
+════════════════════════════════════════════════ -->
+<div id="modal-config" class="modal-overlay" style="display:none">
+  <div class="modal-box lg">
+    <div class="modal-head">
+      <h3>🔥 Configuração Firebase</h3>
+      <button class="modal-close" data-close="modal-config">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="config-guide">
+        <p>Como obter a configuração:</p>
+        <ol>
+          <li>Acesse <strong>console.firebase.google.com</strong> e crie/abra um projeto</li>
+          <li>No menu lateral: <strong>Firestore Database</strong> → Criar banco de dados</li>
+          <li>Nas configurações do projeto (⚙️) → <strong>Seus aplicativos</strong> → Web (<code>&lt;/&gt;</code>)</li>
+          <li>Copie o objeto <code>firebaseConfig</code> (só o JSON entre <code>{ }</code>)</li>
+          <li>Cole no campo abaixo e clique em <strong>Salvar e conectar</strong></li>
+        </ol>
+        <div class="rules-warn">
+          ⚠️ <strong>Regras do Firestore</strong> — para uso interno, configure assim em
+          <em>Firestore → Regras</em>:<pre class="rules-code">rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}</pre>
+        </div>
+      </div>
+
+      <label style="font-size:.78rem;font-weight:700;color:#374151;display:block;margin-bottom:6px;">
+        Configuração Firebase (JSON):
+      </label>
+      <textarea id="config-json" class="config-textarea" placeholder='{
+  "apiKey": "AIzaSy...",
+  "authDomain": "meu-projeto.firebaseapp.com",
+  "projectId": "meu-projeto",
+  "storageBucket": "meu-projeto.appspot.com",
+  "messagingSenderId": "123456789",
+  "appId": "1:123456789:web:abc..."
+}'></textarea>
+      <div id="config-err" class="config-err" style="display:none"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-secondary" id="btn-limpar-config">🗑️ Limpar</button>
+      <button class="btn-secondary" data-close="modal-config">Cancelar</button>
+      <button class="btn-primary" id="btn-salvar-config" style="flex:0;white-space:nowrap">✅ Salvar e conectar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast"></div>
+
+<!-- ═══════════════════════════════════════════════
+     JAVASCRIPT
+════════════════════════════════════════════════ -->
+<script>
+// ─── Configuração Firebase ────────────────────────────────────────────────
+const FB_LS = "fb-config-v1";
+
+// Config padrão embutida — funciona para todos sem precisar configurar
+const FB_CONFIG_PADRAO = {
+  apiKey:            "AIzaSyCvvtlScjCLWTwiHa3hw9U1rEK-oYblcJQ",
+  authDomain:        "erros-esfinge.firebaseapp.com",
+  projectId:         "erros-esfinge",
+  storageBucket:     "erros-esfinge.firebasestorage.app",
+  messagingSenderId: "682442944427",
+  appId:             "1:682442944427:web:f748dc5027064696b52cee"
+};
+
+function lerConfig() {
+  try {
+    const s = JSON.parse(localStorage.getItem(FB_LS) || "null");
+    if (s && s.projectId && s.apiKey) return s; // override manual tem prioridade
+  } catch {}
+  return FB_CONFIG_PADRAO; // fallback: config embutida
+}
+
+// ─── Estado global ───────────────────────────────────────────────────────
+let db = null, col = null, unsub = null;
+let erros = [];
+let editId = null;
+let solucaoOriginal = "";
+let pendingDelId = null;
+
+// ─── UUID ─────────────────────────────────────────────────────────────────
+function uid() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
+
+// ─── Helpers de data ─────────────────────────────────────────────────────
+function fmtData(iso) {
+  if (!iso) return "";
+  try { return new Date(iso).toLocaleDateString("pt-BR"); } catch { return iso; }
+}
+function fmtDataHora(iso) {
+  if (!iso) return "";
+  try { return new Date(iso).toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" }); }
+  catch { return iso; }
+}
+
+// ─── Toast ────────────────────────────────────────────────────────────────
+let toastTimer;
+function toast(msg, tipo = "ok") {
+  const el = document.getElementById("toast");
+  el.textContent = msg;
+  el.className = `toast show ${tipo}`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = "toast"; }, 3200);
+}
+
+// ─── Status do banco ─────────────────────────────────────────────────────
+function setStatus(estado, txt) {
+  document.getElementById("db-dot").className = "db-dot " + (estado === "ok" ? "ok" : estado === "error" ? "error" : "");
+  document.getElementById("db-txt").textContent = txt;
+}
+
+// ─── Init Firebase ────────────────────────────────────────────────────────
+function initFirebase(config) {
+  try {
+    // Se já há app inicializado, reutiliza; caso contrário inicializa
+    if (!firebase.apps.length) {
+      firebase.initializeApp(config);
+    }
+    db  = firebase.firestore();
+    col = db.collection("erros-esfinge");
+    setStatus("loading", "Conectando...");
+    iniciarListener();
+    return true;
+  } catch (e) {
+    console.error("Firebase init:", e);
+    setStatus("error", "Erro na config");
+    toast("Erro ao inicializar Firebase: " + e.message, "err");
+    return false;
+  }
+}
+
+// ─── Listener em tempo real ───────────────────────────────────────────────
+function iniciarListener() {
+  if (unsub) unsub();
+  unsub = col.orderBy("criadoEm", "desc").onSnapshot(
+    snap => {
+      const primeiraVez = erros.length === 0;
+      erros = snap.docs.map(doc => {
+        const d = doc.data();
+        return {
+          id: doc.id,
+          ...d,
+          criadoEm:    normTs(d.criadoEm),
+          atualizadoEm: normTs(d.atualizadoEm),
+          solucoes: (d.solucoes || []).map(s => ({ ...s, dataIndicacao: normTs(s.dataIndicacao) }))
+        };
+      });
+      setStatus("ok", `${erros.length} registro${erros.length !== 1 ? "s" : ""}`);
+      renderLista();
+      atualizarFiltroFerr();
+      if (primeiraVez && URL_ERRO_PARAM) verificarImportacao();
+    },
+    err => {
+      console.warn("Firestore:", err.code, err.message);
+      // Regras ainda não publicadas — orientar o usuário discretamente
+      if (err.code === "permission-denied") {
+        toast("⚠️ Acesso bloqueado — publique as regras no Firestore.", "err");
+      }
+    }
+  );
+}
+
+// Normaliza Firestore Timestamp → ISO string
+function normTs(val) {
+  if (!val) return null;
+  if (val.toDate) return val.toDate().toISOString();
+  return val;
+}
+
+// ─── CRUD ─────────────────────────────────────────────────────────────────
+async function criar(dados) {
+  const versao1 = {
+    id: uid(),
+    solucao: dados.solucao || "",
+    indicadoPor: dados.registrado || "Anônimo",
+    dataIndicacao: new Date().toISOString(),
+    versao: 1
+  };
+  await col.add({
+    erro:       dados.erro,
+    registrado: dados.registrado || "",
+    base:       dados.base || "",
+    ferramenta: dados.ferramenta || "",
+    como:       dados.como || "",
+    dicas:      dados.dicas || "",
+    solucoes:   [versao1],
+    criadoEm:   firebase.firestore.FieldValue.serverTimestamp(),
+    atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
+  });
+}
+
+async function atualizar(id, dados, novaSolucao, indicadoPor) {
+  const docRef = col.doc(id);
+  const snap   = await docRef.get();
+  const atual  = snap.data();
+  let solucoes = (atual.solucoes || []).slice();
+
+  const updates = {
+    erro:       dados.erro,
+    registrado: dados.registrado || "",
+    base:       dados.base || "",
+    ferramenta: dados.ferramenta || "",
+    como:       dados.como || "",
+    dicas:      dados.dicas || "",
+    atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
+  };
+
+  // Cria nova versão somente se a solução mudou
+  const solAtual = solucoes[solucoes.length - 1]?.solucao || "";
+  if (novaSolucao.trim() !== solAtual.trim()) {
+    solucoes = [...solucoes, {
+      id: uid(),
+      solucao: novaSolucao.trim(),
+      indicadoPor: indicadoPor?.trim() || "Anônimo",
+      dataIndicacao: new Date().toISOString(),
+      versao: solucoes.length + 1
+    }];
+    updates.solucoes = solucoes;
+  }
+
+  await docRef.update(updates);
+}
+
+async function deletar(id) {
+  await col.doc(id).delete();
+}
+
+// ─── Formulário ───────────────────────────────────────────────────────────
+function coletarForm() {
+  return {
+    erro:       document.getElementById("f-erro").value.trim(),
+    registrado: document.getElementById("f-registrado").value.trim(),
+    base:       document.getElementById("f-base").value.trim(),
+    ferramenta: document.getElementById("f-ferramenta").value.trim(),
+    solucao:    document.getElementById("f-solucao").value.trim(),
+    como:       document.getElementById("f-como").value.trim(),
+    dicas:      document.getElementById("f-dicas").value.trim()
+  };
+}
+
+function limparForm() {
+  document.getElementById("form-erro").reset();
+  document.getElementById("nova-versao-box").style.display = "none";
+  document.getElementById("f-indicado").value = "";
+  document.getElementById("form-titulo").textContent = "➕ Novo Erro";
+  document.getElementById("btn-salvar").textContent = "💾 Salvar";
+  document.getElementById("btn-cancelar").style.display = "none";
+  // Remover destaque de card em edição
+  document.querySelectorAll(".erro-card.editando").forEach(c => c.classList.remove("editando"));
+  editId = null;
+  solucaoOriginal = "";
+}
+
+function carregarForm(e) {
+  const solAtual = e.solucoes?.[e.solucoes.length - 1]?.solucao || "";
+  document.getElementById("f-erro").value       = e.erro        || "";
+  document.getElementById("f-registrado").value = e.registrado  || "";
+  document.getElementById("f-base").value       = e.base        || "";
+  document.getElementById("f-ferramenta").value = e.ferramenta  || "";
+  document.getElementById("f-solucao").value    = solAtual;
+  document.getElementById("f-como").value       = e.como        || "";
+  document.getElementById("f-dicas").value      = e.dicas       || "";
+
+  solucaoOriginal = solAtual;
+  editId = e.id;
+
+  document.getElementById("nova-versao-box").style.display = "none";
+  document.getElementById("f-indicado").value = "";
+  document.getElementById("form-titulo").textContent = "✏️ Editando";
+  document.getElementById("btn-salvar").textContent = "💾 Atualizar";
+  document.getElementById("btn-cancelar").style.display = "";
+
+  // Destacar card em edição
+  document.querySelectorAll(".erro-card.editando").forEach(c => c.classList.remove("editando"));
+  const card = document.querySelector(`.btn-edit[data-id="${e.id}"]`)?.closest(".erro-card");
+  if (card) card.classList.add("editando");
+
+  document.querySelector(".panel-sticky").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+// Detectar mudança na solução durante edição → mostrar box de nova versão
+document.getElementById("f-solucao").addEventListener("input", function () {
+  if (!editId) return;
+  const mudou = this.value.trim() !== solucaoOriginal.trim();
+  document.getElementById("nova-versao-box").style.display = mudou ? "" : "none";
+  if (!mudou) document.getElementById("f-indicado").value = "";
+});
+
+// Submit
+document.getElementById("form-erro").addEventListener("submit", async function (e) {
+  e.preventDefault();
+  if (!col) { toast("Firebase não configurado.", "err"); return; }
+
+  const dados = coletarForm();
+  const btn = document.getElementById("btn-salvar");
+  btn.disabled = true;
+  btn.textContent = "⏳ Salvando...";
+
+  try {
+    if (editId) {
+      const novaSolucao = dados.solucao;
+      const indicado = document.getElementById("f-indicado").value.trim();
+
+      // Se solução mudou, indicado é obrigatório
+      if (novaSolucao.trim() !== solucaoOriginal.trim() && !indicado) {
+        toast("Informe quem está indicando a nova versão.", "err");
+        document.getElementById("f-indicado").focus();
+        return;
+      }
+
+      await atualizar(editId, dados, novaSolucao, indicado);
+      toast("Registro atualizado com sucesso!");
+    } else {
+      await criar(dados);
+      toast("Erro cadastrado com sucesso!");
+    }
+    limparForm();
+  } catch (err) {
+    console.error(err);
+    toast("Erro ao salvar: " + err.message, "err");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = editId ? "💾 Atualizar" : "💾 Salvar";
+  }
+});
+
+document.getElementById("btn-cancelar").addEventListener("click", limparForm);
+
+// ─── Renderizar lista ─────────────────────────────────────────────────────
+function renderLista() {
+  const busca = document.getElementById("busca").value.toLowerCase();
+  const filtFerr = document.getElementById("filtro-ferr").value;
+
+  const filtrados = erros.filter(e => {
+    if (filtFerr && e.ferramenta !== filtFerr) return false;
+    if (!busca) return true;
+    const solAtual = e.solucoes?.[e.solucoes.length - 1]?.solucao || "";
+    return [e.erro, solAtual, e.ferramenta, e.base, e.registrado, e.como, e.dicas]
+      .some(v => (v || "").toLowerCase().includes(busca));
+  });
+
+  document.getElementById("list-count").textContent =
+    `${filtrados.length} de ${erros.length} registro${erros.length !== 1 ? "s" : ""}`;
+
+  const container = document.getElementById("lista");
+
+  if (filtrados.length === 0) {
+    container.innerHTML = `<div class="empty-state">
+      <div class="empty-icon">${erros.length === 0 ? "📚" : "🔍"}</div>
+      <p>${erros.length === 0 ? "Nenhum registro ainda. Cadastre o primeiro erro acima." : "Nenhum resultado para a busca."}</p>
+    </div>`;
+    return;
+  }
+
+  container.innerHTML = filtrados.map(e => cardHTML(e)).join("");
+
+  container.querySelectorAll(".btn-edit").forEach(btn =>
+    btn.addEventListener("click", () => {
+      const e = erros.find(x => x.id === btn.dataset.id);
+      if (e) carregarForm(e);
+    })
+  );
+  container.querySelectorAll(".btn-del").forEach(btn =>
+    btn.addEventListener("click", () => {
+      pendingDelId = btn.dataset.id;
+      document.getElementById("modal-del").style.display = "flex";
+    })
+  );
+  container.querySelectorAll(".btn-historico").forEach(btn =>
+    btn.addEventListener("click", () => {
+      const e = erros.find(x => x.id === btn.dataset.id);
+      if (e) abrirHistorico(e);
+    })
+  );
+}
+
+function cardHTML(e) {
+  const solucoes = e.solucoes || [];
+  const solAtual = solucoes[solucoes.length - 1];
+  const nVersoes = solucoes.length;
+
+  const bFerr = e.ferramenta ? `<span class="badge badge-ferr">🔧 ${esc(e.ferramenta)}</span>` : "";
+  const bBase = e.base       ? `<span class="badge badge-base">🗄️ ${esc(e.base)}</span>` : "";
+
+  const btnHist = nVersoes > 1
+    ? `<button class="btn-historico" data-id="${e.id}">📜 ${nVersoes} versões</button>`
+    : "";
+  const vBadge = `<span class="versao-badge">v${nVersoes}</span>`;
+
+  const indicado = solAtual
+    ? `<div class="solucao-indicado">
+         Versão ${solAtual.versao || nVersoes} — indicado por <strong>${esc(solAtual.indicadoPor || "?")}</strong>
+         ${solAtual.dataIndicacao ? " em " + fmtData(solAtual.dataIndicacao) : ""}
+       </div>`
+    : "";
+
+  const comoHtml = e.como
+    ? `<div class="card-field">
+         <span class="card-field-label">Como usar a ferramenta</span>
+         ${esc(e.como)}
+       </div>`
+    : "";
+  const dicaHtml = e.dicas
+    ? `<div class="card-dica">💡 ${esc(e.dicas)}</div>`
+    : "";
+
+  const rodape = [
+    e.registrado  ? `Registrado por <strong>${esc(e.registrado)}</strong>` : "",
+    e.criadoEm    ? fmtDataHora(e.criadoEm) : ""
+  ].filter(Boolean).join(" · ");
+
+  return `
+    <div class="erro-card">
+      <div class="card-top">
+        <div class="card-badges">${bFerr}${bBase}</div>
+        <div class="card-actions">
+          <button class="btn-icon btn-edit" data-id="${e.id}" title="Editar">✏️</button>
+          <button class="btn-icon danger btn-del" data-id="${e.id}" title="Excluir">🗑️</button>
+        </div>
+      </div>
+
+      <div class="card-erro-text">${esc(e.erro)}</div>
+
+      <div class="card-solucao">
+        <div class="solucao-head">
+          <span class="solucao-label">Solução atual</span>
+          ${vBadge}
+          ${btnHist}
+        </div>
+        <div class="solucao-text">${esc(solAtual?.solucao || "—")}</div>
+        ${indicado}
+      </div>
+
+      ${comoHtml || dicaHtml ? `<div class="card-extra">${comoHtml}${dicaHtml}</div>` : ""}
+
+      <div class="card-footer">
+        <span>${rodape}</span>
+        ${e.atualizadoEm && e.atualizadoEm !== e.criadoEm
+          ? `<span>Atualizado em ${fmtData(e.atualizadoEm)}</span>` : ""}
+      </div>
+    </div>`;
+}
+
+// Escapa HTML
+function esc(s) {
+  if (s == null) return "";
+  return String(s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/\n/g, "<br>");
+}
+
+// ─── Filtro de ferramenta ─────────────────────────────────────────────────
+function atualizarFiltroFerr() {
+  const sel = document.getElementById("filtro-ferr");
+  const atual = sel.value;
+  const ferrs = [...new Set(erros.map(e => e.ferramenta).filter(Boolean))].sort();
+  sel.innerHTML = `<option value="">Todas ferramentas</option>` +
+    ferrs.map(f => `<option value="${esc(f)}"${f === atual ? " selected" : ""}>${esc(f)}</option>`).join("");
+}
+
+document.getElementById("busca").addEventListener("input", renderLista);
+document.getElementById("filtro-ferr").addEventListener("change", renderLista);
+
+// ─── Modal: histórico ─────────────────────────────────────────────────────
+function abrirHistorico(e) {
+  document.getElementById("hist-erro-ref").innerHTML =
+    `<strong>Erro:</strong>${esc(e.erro)}`;
+
+  const solucoes = (e.solucoes || []).slice().reverse(); // mais recente primeiro
+  const total = solucoes.length;
+
+  document.getElementById("hist-timeline").innerHTML = solucoes.map((s, i) => {
+    const isAtual = i === 0;
+    const numVersao = total - i;
+    return `<div class="tl-item ${isAtual ? "atual" : ""}">
+      <div class="tl-marker">v${numVersao}</div>
+      <div class="tl-content">
+        <div class="tl-meta">
+          <strong>Versão ${numVersao}</strong>${isAtual ? '<span class="badge-atual">✓ Atual</span>' : ""}
+          &nbsp;—&nbsp;${esc(s.indicadoPor || "Anônimo")}
+          ${s.dataIndicacao ? " · " + fmtDataHora(s.dataIndicacao) : ""}
+        </div>
+        <div class="tl-solucao">${esc(s.solucao || "—")}</div>
+      </div>
+    </div>`;
+  }).join("");
+
+  document.getElementById("modal-hist").style.display = "flex";
+}
+
+// ─── Modal: deletar ───────────────────────────────────────────────────────
+document.getElementById("btn-confirmar-del").addEventListener("click", async () => {
+  if (!pendingDelId) return;
+  try {
+    await deletar(pendingDelId);
+    toast("Registro excluído.");
+    if (editId === pendingDelId) limparForm();
+  } catch (err) {
+    toast("Erro ao excluir: " + err.message, "err");
+  }
+  pendingDelId = null;
+  document.getElementById("modal-del").style.display = "none";
+});
+
+// ─── Modal: configuração Firebase ────────────────────────────────────────
+function abrirConfig() {
+  const cfg = lerConfig();
+  document.getElementById("config-json").value = cfg ? JSON.stringify(cfg, null, 2) : "";
+  document.getElementById("config-err").style.display = "none";
+  document.getElementById("modal-config").style.display = "flex";
+}
+document.getElementById("btn-open-config").addEventListener("click", abrirConfig);
+document.getElementById("btn-banner-config").addEventListener("click", abrirConfig);
+
+document.getElementById("btn-salvar-config").addEventListener("click", () => {
+  const raw = document.getElementById("config-json").value.trim();
+  const errEl = document.getElementById("config-err");
+  try {
+    const cfg = JSON.parse(raw);
+    if (!cfg.projectId || !cfg.apiKey) throw new Error("Campos obrigatórios ausentes: projectId e apiKey.");
+    localStorage.setItem(FB_LS, JSON.stringify(cfg));
+    errEl.style.display = "none";
+    document.getElementById("modal-config").style.display = "none";
+    toast("Configuração salva! Recarregando...");
+    setTimeout(() => location.reload(), 900);
+  } catch (e) {
+    errEl.textContent = "⚠️ " + e.message;
+    errEl.style.display = "";
+  }
+});
+
+document.getElementById("btn-limpar-config").addEventListener("click", () => {
+  if (confirm("Limpar a configuração Firebase? A página será recarregada.")) {
+    localStorage.removeItem(FB_LS);
+    location.reload();
+  }
+});
+
+// ─── Fechar modais ────────────────────────────────────────────────────────
+document.querySelectorAll("[data-close]").forEach(btn =>
+  btn.addEventListener("click", () => {
+    document.getElementById(btn.dataset.close).style.display = "none";
+  })
+);
+document.querySelectorAll(".modal-overlay").forEach(overlay =>
+  overlay.addEventListener("click", e => { if (e.target === overlay) overlay.style.display = "none"; })
+);
+
+// ─── URL Param: ?erro= (importado da Consulta de Lotes) ──────────────────
+const URL_ERRO_PARAM = new URLSearchParams(window.location.search).get("erro");
+
+function verificarImportacao() {
+  if (!URL_ERRO_PARAM) return;
+
+  // Pré-preenche o campo de erro
+  const decoded = decodeURIComponent(URL_ERRO_PARAM);
+  document.getElementById("f-erro").value = decoded;
+
+  // Exibe o banner de importado
+  const bannerImp = document.getElementById("banner-importado");
+  bannerImp.style.display = "flex";
+
+  // Verifica se já existe solução cadastrada (usa o array já carregado)
+  const mN = normStr(decoded);
+  const match = erros.find(e => {
+    const eN = normStr(e.erro || "");
+    return eN === mN || eN.includes(mN) || mN.includes(eN);
+  });
+
+  if (match) {
+    bannerImp.style.display = "none"; // substitui pelo banner de existente
+    const bannerEx = document.getElementById("banner-existente");
+    bannerEx.style.display = "flex";
+    const solAtual = match.solucoes?.[match.solucoes.length - 1];
+    document.getElementById("banner-existente-txt").textContent =
+      solAtual ? `"${solAtual.solucao.slice(0, 100)}${solAtual.solucao.length > 100 ? "…" : ""}"` : "";
+    document.getElementById("banner-existente-ir").addEventListener("click", () => {
+      carregarForm(match);
+      const card = document.querySelector(`.btn-edit[data-id="${match.id}"]`)?.closest(".erro-card");
+      if (card) { card.scrollIntoView({ behavior: "smooth", block: "center" }); card.classList.add("editando"); }
+    });
+  }
+}
+
+function normStr(s) { return String(s || "").toLowerCase().trim().replace(/\s+/g, " "); }
+
+// ─── Inicialização ────────────────────────────────────────────────────────
+(function init() {
+  const cfg = lerConfig();
+  if (cfg) {
+    document.getElementById("setup-banner").style.display = "none";
+    initFirebase(cfg);
+  } else {
+    document.getElementById("setup-banner").style.display = "";
+    setStatus("error", "Não configurado");
+    document.getElementById("lista").innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">🔥</div>
+        <p>Configure o Firebase para começar a usar.<br>Clique em <strong>⚙️ Firebase</strong> no topo.</p>
+      </div>`;
+  }
+
+  // Se Firebase não inicializou mas tem param de URL, preenche o campo
+  if (URL_ERRO_PARAM && !cfg) {
+    document.getElementById("f-erro").value = decodeURIComponent(URL_ERRO_PARAM);
+    document.getElementById("banner-importado").style.display = "flex";
+  }
+  // Setup banner só aparece se Firebase falhar completamente (config padrão existe)
+  document.getElementById("setup-banner").style.display = "none";
+})();
+</script>
+</body>
+</html>

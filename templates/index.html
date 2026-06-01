@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>e-Sfinge TCE/SC — Central de Apoio</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --blue:      #1a3a6b;
+      --blue-mid:  #1e4a8a;
+      --blue-light:#e8f0fe;
+      --green:     #1e7e34;
+      --green-bg:  #e6f4ea;
+      --gray:      #6b7280;
+      --gray-bg:   #f0f2f5;
+      --card-bg:   #ffffff;
+      --border:    #e2e8f0;
+      --shadow:    0 2px 12px rgba(0,0,0,.07);
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--gray-bg);
+      min-height: 100vh;
+      color: #1a1a2e;
+    }
+
+    /* ── Header ── */
+    .topbar {
+      background: var(--blue);
+      color: #fff;
+      padding: 20px 40px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .topbar-icon {
+      width: 44px; height: 44px;
+      background: rgba(255,255,255,.15);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.4rem;
+    }
+    .topbar-title { font-size: 1.25rem; font-weight: 700; }
+    .topbar-sub   { font-size: 0.82rem; opacity: .75; margin-top: 2px; }
+
+    /* ── Hero ── */
+    .hero {
+      background: linear-gradient(135deg, #1a3a6b 0%, #1e4a8a 60%, #2563c7 100%);
+      color: #fff;
+      padding: 48px 40px 56px;
+      text-align: center;
+    }
+    .hero h1 { font-size: 2rem; font-weight: 800; margin-bottom: 10px; }
+    .hero p  { font-size: 1rem; opacity: .85; max-width: 520px; margin: 0 auto; }
+
+    .badge-tce {
+      display: inline-block;
+      background: rgba(255,255,255,.18);
+      border: 1px solid rgba(255,255,255,.3);
+      border-radius: 99px;
+      padding: 4px 14px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: .05em;
+      margin-bottom: 18px;
+    }
+
+    /* ── Grid de ferramentas ── */
+    .section {
+      max-width: 960px;
+      margin: -28px auto 0;
+      padding: 0 24px 48px;
+    }
+
+    .section-title {
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--gray);
+      margin-bottom: 14px;
+      padding-left: 2px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 16px;
+    }
+
+    /* ── Card de ferramenta ── */
+    .tool-card {
+      background: var(--card-bg);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      padding: 24px;
+      text-decoration: none;
+      color: inherit;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      border: 1.5px solid transparent;
+      transition: border-color .2s, box-shadow .2s, transform .15s;
+      position: relative;
+      overflow: hidden;
+    }
+    .tool-card.ativo:hover {
+      border-color: var(--blue);
+      box-shadow: 0 4px 20px rgba(26,58,107,.13);
+      transform: translateY(-2px);
+    }
+    .tool-card.bloqueado {
+      opacity: .6;
+      cursor: default;
+      pointer-events: none;
+    }
+
+    .tool-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 4px;
+      background: var(--blue);
+      border-radius: 14px 14px 0 0;
+    }
+    .tool-card.verde::before   { background: #16a34a; }
+    .tool-card.laranja::before { background: #d97706; }
+    .tool-card.roxo::before    { background: #7c3aed; }
+    .tool-card.rosa::before    { background: #db2777; }
+    .tool-card.teal::before    { background: #0891b2; }
+
+    .card-icon {
+      width: 44px; height: 44px;
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.3rem;
+      background: var(--blue-light);
+      flex-shrink: 0;
+    }
+    .card-icon.verde   { background: #dcfce7; }
+    .card-icon.laranja { background: #fef3c7; }
+    .card-icon.roxo    { background: #ede9fe; }
+    .card-icon.rosa    { background: #fce7f3; }
+    .card-icon.teal    { background: #cffafe; }
+
+    .tag-externo { background: #cffafe; color: #0e7490; }
+    .tag-externo .tag-dot { background: #0891b2; }
+
+    .card-header { display: flex; align-items: center; gap: 12px; }
+
+    .card-label {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #1a1a2e;
+    }
+    .card-desc {
+      font-size: 0.83rem;
+      color: var(--gray);
+      line-height: 1.5;
+      flex: 1;
+    }
+
+    .card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: auto;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: 99px;
+      font-size: 0.73rem;
+      font-weight: 700;
+    }
+    .tag-disponivel { background: var(--green-bg); color: var(--green); }
+    .tag-breve      { background: #f1f5f9; color: #64748b; }
+
+    .tag-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .card-arrow {
+      font-size: 1.1rem;
+      color: var(--blue);
+      opacity: 0;
+      transition: opacity .2s, transform .2s;
+    }
+    .tool-card.ativo:hover .card-arrow { opacity: 1; transform: translateX(4px); }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      padding: 24px;
+      font-size: 0.78rem;
+      color: #aaa;
+    }
+    footer a { color: #888; text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-icon">📊</div>
+  <div>
+    <div class="topbar-title">e-Sfinge TCE/SC</div>
+    <div class="topbar-sub">Ferramentas de apoio ao envio tributário</div>
+  </div>
+</div>
+
+<div class="hero">
+  <div class="badge-tce">MÓDULO TRIBUTÁRIO</div>
+  <h1>Central de Apoio ao Envio</h1>
+  <p>Ferramentas para facilitar a consulta, validação e acompanhamento das remessas ao TCE/SC via e-Sfinge.</p>
+</div>
+
+<div class="section">
+  <div class="section-title">Ferramentas disponíveis</div>
+  <div class="grid">
+
+    <!-- Executor e-Sfinge -->
+    <a href="executor.html" class="tool-card ativo verde">
+      <div class="card-header">
+        <div class="card-icon verde">⚙️</div>
+        <div class="card-label">Executor e-Sfinge</div>
+      </div>
+      <div class="card-desc">
+        Execute as 9 etapas de geração e validação tributária com log em tempo real — direto do browser, sem instalar nada.
+      </div>
+      <div class="card-footer">
+        <span class="tag tag-disponivel"><span class="tag-dot"></span>Disponível</span>
+        <span class="card-arrow">→</span>
+      </div>
+    </a>
+
+    <!-- Consulta de Lotes -->
+    <a href="consulta-lotes.html" class="tool-card ativo verde">
+      <div class="card-header">
+        <div class="card-icon verde">🔍</div>
+        <div class="card-label">Consulta de Lotes</div>
+      </div>
+      <div class="card-desc">
+        Informe suas credenciais e o número do lote para consultar o resultado do processamento — erros de negócio, situação e dados do registro.
+      </div>
+      <div class="card-footer">
+        <span class="tag tag-disponivel"><span class="tag-dot"></span>Disponível</span>
+        <span class="card-arrow">→</span>
+      </div>
+    </a>
+
+    <!-- Check list Tributos -->
+    <a href="checklist-tributos.html" class="tool-card ativo teal">
+      <div class="card-header">
+        <div class="card-icon teal">✅</div>
+        <div class="card-label">Check list Tributos</div>
+      </div>
+      <div class="card-desc">
+        Controle manual das etapas de envio tributário — registre erros, soluções e gere relatório Markdown para o atendimento.
+      </div>
+      <div class="card-footer">
+        <span class="tag tag-disponivel"><span class="tag-dot"></span>Disponível</span>
+        <span class="card-arrow">→</span>
+      </div>
+    </a>
+
+    <!-- Agrupador de Erros -->
+    <a href="agrupador-erros.html" class="tool-card ativo laranja">
+      <div class="card-header">
+        <div class="card-icon laranja">🗂️</div>
+        <div class="card-label">Agrupador de Erros</div>
+      </div>
+      <div class="card-desc">
+        Importe o HTML de pré-validação gerado pelo Betha e visualize os erros agrupados por mensagem, contribuinte, tipo ou sistema.
+      </div>
+      <div class="card-footer">
+        <span class="tag tag-disponivel"><span class="tag-dot"></span>Disponível</span>
+        <span class="card-arrow">→</span>
+      </div>
+    </a>
+
+    <!-- Cadastro de Erros e Soluções -->
+    <a href="cadastro-erros.html" class="tool-card ativo roxo">
+      <div class="card-header">
+        <div class="card-icon roxo">📚</div>
+        <div class="card-label">Erros e Soluções</div>
+      </div>
+      <div class="card-desc">
+        Base de conhecimento colaborativa: cadastre erros conhecidos, quem identificou, como resolver, qual ferramenta usar e dicas de uso.
+      </div>
+      <div class="card-footer">
+        <span class="tag tag-disponivel"><span class="tag-dot"></span>Disponível</span>
+        <span class="card-arrow">→</span>
+      </div>
+    </a>
+
+    <!-- Manual e-Sfinge 2026 (externo) -->
+    <a href="https://esfinge-team.github.io/manual-esfinge-2026/" target="_blank" rel="noopener" class="tool-card ativo teal">
+      <div class="card-header">
+        <div class="card-icon teal">📘</div>
+        <div class="card-label">Manual e-Sfinge 2026</div>
+      </div>
+      <div class="card-desc">
+        Documentação oficial do e-Sfinge 2026 — guias de envio, referência dos módulos tributários e instruções do TCE/SC.
+      </div>
+      <div class="card-footer">
+        <span class="tag tag-externo"><span class="tag-dot"></span>Recurso externo ↗</span>
+        <span class="card-arrow">→</span>
+      </div>
+    </a>
+
+  </div>
+</div>
+
+<footer>
+  Ferramenta de uso interno &mdash;
+  <a href="https://github.com/emanuelmelo87/boas-praticas-eSfinge-Betha" target="_blank">GitHub</a>
+  &nbsp;·&nbsp;
+  API: <a href="https://api.virtual.tce.sc.gov.br" target="_blank">api.virtual.tce.sc.gov.br</a>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Check list Tributos — e-Sfinge</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --blue:    #1a3a6b; --blue-mid: #1e4a8a; --blue-light: #e8f0fe;
+      --green:   #16a34a; --green-bg: #dcfce7;
+      --orange:  #d97706; --orange-bg: #fef3c7;
+      --red:     #dc2626; --red-bg: #fde8e8;
+      --gray:    #6b7280; --gray-bg: #f0f2f5;
+      --border:  #e2e8f0; --shadow: 0 2px 10px rgba(0,0,0,.07);
+    }
+
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--gray-bg); color: #1a1a2e; min-height: 100vh; }
+
+    /* ── Topbar ── */
+    .topbar { background: var(--blue); color: #fff; padding: 12px 20px; display: flex; align-items: center; gap: 10px; }
+    .topbar a { color: rgba(255,255,255,.7); text-decoration: none; font-size: .82rem; }
+    .topbar a:hover { color: #fff; }
+    .topbar-sep { color: rgba(255,255,255,.3); margin: 0 4px; }
+    .topbar-icon { width: 32px; height: 32px; background: rgba(255,255,255,.15); border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0; }
+    .topbar-title { font-weight: 700; font-size: .92rem; }
+    .topbar-tag { font-size: .68rem; background: rgba(255,255,255,.15); padding: 2px 8px; border-radius: 99px; margin-left: 4px; }
+
+    /* ── Entity bar ── */
+    .entity-bar {
+      background: #fff; border-bottom: 1px solid var(--border);
+      padding: 10px 20px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    }
+    .entity-info { flex: 1; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .entity-name { font-weight: 700; font-size: .9rem; color: var(--blue); }
+    .entity-chip { font-size: .75rem; color: var(--gray); background: var(--gray-bg); padding: 3px 10px; border-radius: 99px; }
+    .iter-badge  { font-size: .72rem; font-weight: 700; background: var(--blue-light); color: var(--blue); padding: 3px 10px; border-radius: 99px; }
+    .entity-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+    /* ── Phase tabs ── */
+    .phase-nav { background: #fff; border-bottom: 2px solid var(--border); padding: 0 20px; display: flex; gap: 0; overflow-x: auto; }
+    .phase-tab {
+      padding: 13px 20px; font-size: .82rem; font-weight: 700; cursor: pointer;
+      border-bottom: 3px solid transparent; margin-bottom: -2px;
+      color: var(--gray); white-space: nowrap; display: flex; align-items: center; gap: 6px;
+      transition: .15s; user-select: none;
+    }
+    .phase-tab:hover  { color: var(--blue); }
+    .phase-tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+    .phase-count { font-size: .68rem; background: var(--gray-bg); padding: 1px 6px; border-radius: 99px; font-weight: 700; }
+    .phase-tab.active .phase-count { background: var(--blue-light); color: var(--blue); }
+
+    /* ── Main content ── */
+    .main           { max-width: 900px; margin: 0 auto; padding: 20px 20px 80px; }
+    .main.full-width { max-width: none; padding: 14px 16px 80px; }
+
+    /* ── Setup panel ── */
+    .setup-panel {
+      background: #fff; border-radius: 12px; box-shadow: var(--shadow);
+      padding: 32px; text-align: center; margin-top: 20px;
+    }
+    .setup-panel h2 { color: var(--blue); margin-bottom: 8px; }
+    .setup-panel p  { color: var(--gray); font-size: .85rem; margin-bottom: 20px; }
+    .setup-row { display: flex; gap: 10px; justify-content: center; align-items: flex-end; flex-wrap: wrap; }
+    .setup-field label { display: block; font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: #555; margin-bottom: 4px; }
+    .setup-field select, .setup-field input { padding: 8px 11px; border: 1.5px solid var(--border); border-radius: 7px; font-size: .88rem; background: #fafbfc; }
+    .setup-field select:focus, .setup-field input:focus { outline: none; border-color: var(--blue); }
+
+    /* ── Step card ── */
+    .etapa-card {
+      background: #fff; border-radius: 10px; box-shadow: var(--shadow);
+      border-left: 4px solid #e2e8f0; margin-bottom: 8px;
+      overflow: hidden; transition: border-color .2s;
+    }
+    .etapa-card.ok        { border-left-color: var(--green); }
+    .etapa-card.com_erros { border-left-color: var(--orange); }
+    .etapa-card.pendente  { border-left-color: #cbd5e1; }
+
+    .etapa-header { display: flex; align-items: center; gap: 10px; padding: 13px 16px; }
+    .etapa-codigo { font-size: .72rem; font-weight: 700; color: var(--gray); background: var(--gray-bg); padding: 2px 7px; border-radius: 5px; white-space: nowrap; flex-shrink: 0; }
+    .etapa-nome   { flex: 1; font-size: .84rem; font-weight: 600; color: #1a1a2e; line-height: 1.4; }
+    .etapa-status-icon { font-size: 1rem; flex-shrink: 0; }
+
+    .etapa-actions { display: flex; gap: 6px; padding: 0 16px 12px; }
+    .etapa-card.ok .etapa-actions, .etapa-card.com_erros .etapa-actions { display: none; }
+
+    /* ── Buttons ── */
+    .btn { padding: 7px 14px; border: none; border-radius: 7px; font-size: .78rem; font-weight: 700; cursor: pointer; transition: .15s; display: inline-flex; align-items: center; gap: 5px; }
+    .btn:disabled { opacity: .4; cursor: not-allowed; }
+    .btn-ok     { background: var(--green-bg); color: var(--green); }
+    .btn-ok:hover { background: #bbf7d0; }
+    .btn-erros  { background: var(--orange-bg); color: var(--orange); }
+    .btn-erros:hover { background: #fde68a; }
+    .btn-primary { background: var(--blue); color: #fff; }
+    .btn-primary:hover { background: var(--blue-mid); }
+    .btn-ghost  { background: var(--gray-bg); color: #374151; }
+    .btn-ghost:hover { background: var(--border); }
+    .btn-danger { background: var(--red-bg); color: var(--red); }
+    .btn-sm     { padding: 4px 10px; font-size: .73rem; }
+
+    /* ── Undo button (after marking) ── */
+    .etapa-undo { display: flex; align-items: center; gap: 8px; padding: 0 16px 10px; }
+    .etapa-card.pendente .etapa-undo { display: none; }
+    .undo-label { font-size: .75rem; color: var(--gray); }
+    .btn-undo { background: none; border: 1px solid var(--border); color: var(--gray); border-radius: 5px; padding: 2px 8px; font-size: .72rem; cursor: pointer; }
+    .btn-undo:hover { border-color: var(--red); color: var(--red); }
+
+    /* ── Errors section ── */
+    .erros-section { border-top: 1px solid var(--border); padding: 12px 16px; background: #fffbf0; display: none; }
+    .etapa-card.com_erros .erros-section { display: block; }
+    .erro-item { background: #fff; border: 1px solid #fcd34d; border-radius: 7px; padding: 10px 12px; margin-bottom: 8px; position: relative; }
+    .erro-item-num  { font-size: .68rem; font-weight: 700; color: var(--orange); text-transform: uppercase; margin-bottom: 4px; }
+    .erro-desc-label, .erro-sol-label { font-size: .68rem; font-weight: 700; color: #555; text-transform: uppercase; letter-spacing: .03em; margin-top: 6px; margin-bottom: 2px; }
+    .erro-desc-val, .erro-sol-val { font-size: .82rem; color: #374151; line-height: 1.5; white-space: pre-wrap; }
+    .btn-rem-erro { position: absolute; top: 8px; right: 8px; background: none; border: none; color: #aaa; font-size: 1rem; cursor: pointer; padding: 2px 5px; border-radius: 4px; }
+    .btn-rem-erro:hover { color: var(--red); background: var(--red-bg); }
+
+    .erro-form { background: #fff; border: 1.5px dashed #fcd34d; border-radius: 7px; padding: 12px; margin-top: 8px; }
+    .erro-form.hidden { display: none; }
+    .erro-form textarea, .erro-form input { width: 100%; padding: 7px 10px; border: 1.5px solid var(--border); border-radius: 6px; font-size: .82rem; font-family: inherit; margin-bottom: 8px; resize: vertical; }
+    .erro-form textarea:focus, .erro-form input:focus { outline: none; border-color: var(--orange); }
+    .erro-form-row { display: flex; gap: 6px; }
+
+    /* ── Barra de ação da fase (Todos OK) ── */
+    .fase-action-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+
+    /* ── Split layout (Enviando) ── */
+    .split-layout { display: grid; grid-template-columns: 360px 1fr; gap: 14px; align-items: start; }
+    @media (max-width: 900px) { .split-layout { grid-template-columns: 1fr; } }
+    .split-steps { min-width: 0; }
+
+    .viewer-card { background: #fff; border-radius: 10px; box-shadow: var(--shadow); overflow: hidden; position: sticky; top: 10px; }
+    .viewer-header { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--border); background: #f8fafc; flex-wrap: wrap; }
+    .viewer-title  { font-size: .82rem; font-weight: 700; color: var(--blue); flex: 1; }
+    .viewer-actions { display: flex; align-items: center; gap: 6px; }
+    .viewer-ts { font-size: .68rem; color: var(--gray); }
+    .viewer-body { height: calc(100vh - 200px); min-height: 520px; position: relative; }
+    .viewer-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 10px; color: var(--gray); text-align: center; padding: 20px; }
+    .viewer-empty .icon { font-size: 2.5rem; }
+    .viewer-empty p { font-size: .83rem; }
+    #resultado-iframe { width: 100%; height: 100%; border: none; display: block; }
+
+    /* ── Bottom bar ── */
+    .bottom-bar {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: #fff; border-top: 1px solid var(--border);
+      padding: 10px 20px; display: flex; align-items: center; gap: 14px;
+      box-shadow: 0 -2px 10px rgba(0,0,0,.06); z-index: 50;
+    }
+    .progress-text { font-size: .78rem; color: var(--gray); }
+    .progress-bar-wrap { flex: 1; max-width: 200px; background: #e9ecef; border-radius: 99px; height: 6px; overflow: hidden; }
+    .progress-bar-fill { height: 100%; background: var(--blue); border-radius: 99px; transition: width .3s; }
+    .btn-md { padding: 9px 18px; font-size: .82rem; }
+
+    /* ── Modals ── */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 20px; }
+    .modal-overlay.hidden { display: none; }
+    .modal-box { background: #fff; border-radius: 14px; padding: 28px; width: 100%; max-width: 500px; box-shadow: 0 8px 40px rgba(0,0,0,.2); max-height: 90vh; overflow-y: auto; }
+    .modal-box.wide { max-width: 720px; }
+    .modal-title { font-size: 1.05rem; font-weight: 700; color: var(--blue); margin-bottom: 18px; display: flex; align-items: center; gap: 8px; }
+    .modal-field { margin-bottom: 14px; }
+    .modal-field label { display: block; font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: #555; margin-bottom: 5px; }
+    .modal-field input { width: 100%; padding: 9px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: .9rem; }
+    .modal-field input:focus { outline: none; border-color: var(--blue); }
+    .modal-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+
+    /* History */
+    .hist-group { margin-bottom: 16px; }
+    .hist-group-title { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--gray); margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+    .hist-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: var(--gray-bg); border-radius: 8px; margin-bottom: 5px; }
+    .hist-item-info { flex: 1; }
+    .hist-item-title { font-size: .82rem; font-weight: 600; }
+    .hist-item-sub   { font-size: .72rem; color: var(--gray); margin-top: 2px; }
+    .hist-status-ok   { color: var(--green); }
+    .hist-status-and  { color: var(--blue); }
+    .hist-status-done { color: var(--gray); }
+
+    /* ── Seletor de execução ── */
+    .btn-seletor {
+      background: var(--blue-light); border: 1.5px solid #c7d9f8;
+      color: var(--blue); border-radius: 8px; padding: 7px 14px;
+      font-size: .82rem; font-weight: 700; cursor: pointer;
+      display: flex; align-items: center; gap: 4px; max-width: 420px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      transition: .15s;
+    }
+    .btn-seletor:hover { background: #dbeafe; }
+    .seletor-dropdown {
+      position: absolute; top: calc(100% + 6px); left: 0; z-index: 100;
+      background: #fff; border: 1.5px solid var(--border); border-radius: 10px;
+      box-shadow: 0 6px 24px rgba(0,0,0,.12); min-width: 360px; max-width: 520px;
+      overflow: hidden;
+    }
+    .seletor-dropdown.hidden { display: none; }
+    .seletor-item {
+      display: flex; align-items: center; gap: 10px; padding: 11px 14px;
+      cursor: pointer; transition: background .12s; border-bottom: 1px solid #f0f2f5;
+    }
+    .seletor-item:last-child { border-bottom: none; }
+    .seletor-item:hover { background: var(--blue-light); }
+    .seletor-item.ativo { background: #eff6ff; }
+    .seletor-item-info { flex: 1; overflow: hidden; }
+    .seletor-item-title { font-size: .82rem; font-weight: 700; color: #1a1a2e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .seletor-item-sub   { font-size: .72rem; color: var(--gray); margin-top: 2px; }
+    .seletor-check { color: var(--blue); font-size: 1rem; flex-shrink: 0; }
+
+    /* Toast */
+    .toast { position: fixed; bottom: 72px; right: 20px; background: #15803d; color: #fff; padding: 10px 18px; border-radius: 8px; font-size: .82rem; font-weight: 600; z-index: 400; box-shadow: 0 4px 14px rgba(0,0,0,.2); animation: toastIn .2s; }
+    @keyframes toastIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+
+    /* Responsive */
+    @media (max-width: 600px) {
+      .phase-tab { padding: 10px 12px; font-size: .75rem; }
+      .etapa-header { padding: 10px 12px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Modal: Entidade ── -->
+<div class="modal-overlay" id="modal-entidade">
+  <div class="modal-box">
+    <div class="modal-title">🏛️ Dados da Entidade</div>
+    <div class="modal-field">
+      <label>Nome da entidade</label>
+      <input type="text" id="ent-nome" placeholder="MUNICIPIO DE X">
+    </div>
+    <div class="modal-field">
+      <label>Código / UG</label>
+      <input type="text" id="ent-codigo" placeholder="123">
+    </div>
+    <div class="modal-field">
+      <label>Município</label>
+      <input type="text" id="ent-municipio" placeholder="São Lourenço do Oeste">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="btn-entidade-cancelar" onclick="fecharModalEntidade()">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarEntidade()">💾 Salvar entidade</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: Histórico ── -->
+<div class="modal-overlay hidden" id="modal-historico">
+  <div class="modal-box wide">
+    <div class="modal-title">📋 Histórico de envios</div>
+    <div id="historico-conteudo"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="fecharModalHistorico()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Topbar ── -->
+<div class="topbar">
+  <a href="index.html">← Central</a>
+  <span class="topbar-sep">|</span>
+  <div class="topbar-icon">✅</div>
+  <div>
+    <span class="topbar-title">Check list e-Sfinge</span>
+    <span class="topbar-tag">TRIBUTOS</span>
+  </div>
+</div>
+
+<!-- ── Entity bar ── -->
+<div class="entity-bar" id="entity-bar">
+  <!-- Seletor de execução ativa -->
+  <div style="position:relative;flex:1">
+    <button class="btn-seletor" id="btn-seletor" onclick="toggleSeletor()">
+      <span id="seletor-label">Nenhuma execução ativa</span>
+      <span style="margin-left:6px;font-size:.8rem">▾</span>
+    </button>
+    <div id="seletor-dropdown" class="seletor-dropdown hidden"></div>
+  </div>
+  <div class="entity-actions">
+    <button class="btn btn-ghost btn-sm" onclick="abrirModalEntidade()">✏️ Entidade</button>
+    <button class="btn btn-ghost btn-sm" onclick="abrirModalHistorico()">📋 Histórico</button>
+    <button class="btn btn-primary btn-sm" onclick="novaIteracao()">➕ Nova execução</button>
+  </div>
+</div>
+
+<!-- ── Phase tabs ── -->
+<div class="phase-nav" id="phase-nav">
+  <div class="phase-tab active" data-fase="gerando"     onclick="setFase('gerando')">📤 Gerando     <span class="phase-count" id="cnt-gerando">0/13</span></div>
+  <div class="phase-tab"        data-fase="validando"   onclick="setFase('validando')">🔍 Validando   <span class="phase-count" id="cnt-validando">0/7</span></div>
+  <div class="phase-tab"        data-fase="enviando"    onclick="setFase('enviando')">📨 Enviando    <span class="phase-count" id="cnt-enviando">0/13</span></div>
+  <div class="phase-tab"        data-fase="finalizando" onclick="setFase('finalizando')">🏁 Finalizando <span class="phase-count" id="cnt-finalizando">0/1</span></div>
+</div>
+
+<!-- ── Main ── -->
+<div class="main" id="main-content"></div>
+
+<!-- ── Bottom bar ── -->
+<div class="bottom-bar" id="bottom-bar" style="display:none">
+  <div class="progress-text" id="progress-text">0 etapas concluídas</div>
+  <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progress-fill" style="width:0%"></div></div>
+  <button class="btn btn-ghost btn-md" onclick="concluirIteracao()" title="Marca esta execução como concluída">✅ Concluir</button>
+  <button class="btn btn-primary btn-md" onclick="gerarMarkdown()">📄 Gerar Markdown</button>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════
+   DEFINIÇÕES
+══════════════════════════════════════════════ */
+const LS_KEY     = 'checklist-tributos-v1';       // só para entidade local
+const FB_CONFIG  = {
+  apiKey:            "AIzaSyCvvtlScjCLWTwiHa3hw9U1rEK-oYblcJQ",
+  authDomain:        "erros-esfinge.firebaseapp.com",
+  projectId:         "erros-esfinge",
+  storageBucket:     "erros-esfinge.firebasestorage.app",
+  messagingSenderId: "682442944427",
+  appId:             "1:682442944427:web:f748dc5027064696b52cee"
+};
+const FB_COLECAO = 'checklist-tributos';
+let _db = null;
+
+const DEF = {
+  gerando: [
+    { codigo:'00', nome:'Saldo Inicial de Créditos Tributários e Não Tributários/Inscrição em Dívida Ativa' },
+    { codigo:'01', nome:'Cadastro Contribuinte' },
+    { codigo:'02', nome:'Cadastro Imobiliário' },
+    { codigo:'03', nome:'Cadastro de Propriedade Imobiliária' },
+    { codigo:'04', nome:'Lançamento de Créditos Tributários/Inscrição em Dívida Ativa' },
+    { codigo:'05', nome:'Cobrança de Dívida Ativa' },
+    { codigo:'06', nome:'Início do Prazo Prescricional' },
+    { codigo:'07', nome:'Certidão de Dívida Ativa' },
+    { codigo:'08', nome:'Situação do Tipo de Cobrança de Dívida Ativa' },
+    { codigo:'09', nome:'Revisão de Valor de Lançamento de Créditos Tributários e de Dívidas Ativas' },
+    { codigo:'10', nome:'Baixa dos Créditos Tributários' },
+    { codigo:'11', nome:'Diário Geral de Arrecadação' },
+    { codigo:'12', nome:'Estorno ou Restituição de Receita do Diário' },
+  ],
+  validando: [
+    { codigo:'02', nome:'e-Sfinge Online 2026 - 02 - Validação de vínculos saldos iniciais' },
+    { codigo:'03', nome:'e-Sfinge Online 2026 - 03 - Validação de revisões' },
+    { codigo:'04', nome:'e-Sfinge Online 2026 - 04 - Validação de cobrança dívida ativa' },
+    { codigo:'05', nome:'e-Sfinge Online 2026 - 05 - Validação de lançamentos' },
+    { codigo:'06', nome:'e-Sfinge Online 2026 - 06 - Validação de imóveis' },
+    { codigo:'07', nome:'e-Sfinge Online 2026 - 07 - Validação de contribuintes' },
+    { codigo:'08', nome:'e-Sfinge Online 2026 - 08 - Validação de CONs' },
+  ],
+  enviando: [
+    { codigo:'00', nome:'Saldo Inicial de Créditos Tributários e Não Tributários/Inscrição em Dívida Ativa' },
+    { codigo:'01', nome:'Cadastro Contribuinte' },
+    { codigo:'02', nome:'Cadastro Imobiliário' },
+    { codigo:'03', nome:'Cadastro de Propriedade Imobiliária' },
+    { codigo:'04', nome:'Lançamento de Créditos Tributários/Inscrição em Dívida Ativa' },
+    { codigo:'05', nome:'Cobrança de Dívida Ativa' },
+    { codigo:'06', nome:'Início do Prazo Prescricional' },
+    { codigo:'07', nome:'Certidão de Dívida Ativa' },
+    { codigo:'08', nome:'Situação do Tipo de Cobrança de Dívida Ativa' },
+    { codigo:'09', nome:'Revisão de Valor de Lançamento de Créditos Tributários e de Dívidas Ativas' },
+    { codigo:'10', nome:'Baixa dos Créditos Tributários' },
+    { codigo:'11', nome:'Diário Geral de Arrecadação' },
+    { codigo:'12', nome:'Estorno ou Restituição de Receita do Diário' },
+  ],
+  finalizando: [
+    { codigo:'11', nome:'e-Sfinge Online 2026 - 11 - Finalizar envio' },
+  ],
+};
+
+const FASE_LABELS = { gerando:'Gerando', validando:'Validando', enviando:'Enviando', finalizando:'Finalizando' };
+const FASES = ['gerando','validando','enviando','finalizando'];
+
+/* ══════════════════════════════════════════════
+   ESTADO
+══════════════════════════════════════════════ */
+let _dados      = { entidade: null, historico: [] };
+let _iter       = null;   // iteração ativa (ref em _dados.historico)
+let _fase       = 'gerando';
+let _fileHandle = null;   // File System Access API handle
+let _blobUrl    = null;   // URL do blob atual do iframe
+
+/* ══════════════════════════════════════════════
+   FIREBASE — INICIALIZAÇÃO E SINCRONIZAÇÃO
+══════════════════════════════════════════════ */
+function iniciarFirebase() {
+  try {
+    if (!firebase.apps.length) firebase.initializeApp(FB_CONFIG);
+    _db = firebase.firestore();
+
+    _db.collection(FB_COLECAO)
+      .orderBy('dataInicio', 'asc')
+      .onSnapshot(snap => {
+        const idAtual = _iter?._docId;
+        _dados.historico = snap.docs.map(doc => ({ ...doc.data(), _docId: doc.id }));
+        // Mantém a execução selecionada; se não tiver, pega a mais recente em andamento
+        if (idAtual) {
+          _iter = _dados.historico.find(i => i._docId === idAtual) || null;
+        }
+        if (!_iter) {
+          const ativas = _dados.historico.filter(i => i.status === 'em_andamento');
+          _iter = ativas[ativas.length - 1] || null;
+        }
+        renderizarTudo();
+      }, err => {
+        if (err.code === 'permission-denied') {
+          toast('⚠️ Sem permissão no banco. Verifique as regras do Firestore.');
+        } else { console.warn('Firestore:', err); }
+      });
+  } catch (e) {
+    console.warn('Firebase não inicializado:', e);
+  }
+}
+
+async function salvar() {
+  if (!_db || !_iter) return;
+  const { _docId, ...dados } = _iter;
+  // Converte timestamps do Firestore para string antes de salvar
+  try {
+    if (_docId) {
+      await _db.collection(FB_COLECAO).doc(_docId).set(dados);
+    }
+  } catch (e) {
+    console.warn('Erro ao salvar:', e);
+  }
+}
+
+// Entidade continua em localStorage (config local da máquina)
+function carregarEntidadeLocal() {
+  try {
+    const d = JSON.parse(localStorage.getItem(LS_KEY) || 'null');
+    if (d?.entidade) _dados.entidade = d.entidade;
+  } catch {}
+}
+
+function salvarEntidadeLocal() {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify({ entidade: _dados.entidade }));
+  } catch {}
+}
+
+/* ══════════════════════════════════════════════
+   CRIAÇÃO DE ITERAÇÃO
+══════════════════════════════════════════════ */
+async function criarIteracao(competencia) {
+  const existentes = _dados.historico.filter(i => i.competencia === competencia);
+  const numIter = existentes.length + 1;
+  const nova = {
+    entidade:   _dados.entidade || {},
+    competencia, iteracao: numIter,
+    dataInicio: new Date().toISOString(), dataFim: null,
+    status: 'em_andamento',
+    fases: {}
+  };
+  for (const fase of FASES) {
+    nova.fases[fase] = DEF[fase].map(e => ({
+      codigo: e.codigo, nome: e.nome, status: 'pendente', erros: []
+    }));
+  }
+  if (_db) {
+    try {
+      const ref = await _db.collection(FB_COLECAO).add(nova);
+      nova._docId = ref.id;
+    } catch (e) { console.warn('Erro ao criar iteração:', e); }
+  }
+  _dados.historico.push(nova);
+  _iter = nova;
+}
+
+/* ══════════════════════════════════════════════
+   ACTIONS
+══════════════════════════════════════════════ */
+async function marcarTodosOk() {
+  if (!_iter) return;
+  const etapas    = _iter.fases[_fase];
+  const pendentes = etapas.filter(e => e.status === 'pendente');
+  if (!pendentes.length) return;
+  if (!confirm(`Marcar ${pendentes.length} etapa(s) pendente(s) como OK?`)) return;
+  pendentes.forEach(e => { e.status = 'ok'; });
+  await salvar();
+  renderizarFase();
+  atualizarTabs();
+  atualizarBarraInferior();
+}
+
+async function marcarEtapa(fase, idx, status) {
+  const etapa = _iter.fases[fase][idx];
+  if (!etapa) return;
+  etapa.status = status;
+  await salvar();
+  renderizarFase();
+  atualizarTabs();
+  atualizarBarraInferior();
+}
+
+async function resetarEtapa(fase, idx) {
+  const etapa = _iter.fases[fase][idx];
+  if (!etapa) return;
+  etapa.status = 'pendente';
+  etapa.erros  = [];
+  await salvar();
+  renderizarFase();
+  atualizarTabs();
+  atualizarBarraInferior();
+}
+
+async function adicionarErro(fase, idx, descricao, solucao) {
+  const etapa = _iter.fases[fase][idx];
+  if (!etapa || !descricao.trim()) return;
+  etapa.erros.push({ id: uid(), descricao: descricao.trim(), solucao: solucao.trim() });
+  etapa.status = 'com_erros';
+  await salvar();
+  renderizarFase();
+  atualizarTabs();
+  atualizarBarraInferior();
+}
+
+async function removerErro(fase, etapaIdx, erroId) {
+  const etapa = _iter.fases[fase][etapaIdx];
+  if (!etapa) return;
+  etapa.erros = etapa.erros.filter(e => e.id !== erroId);
+  if (!etapa.erros.length) etapa.status = 'pendente';
+  await salvar();
+  renderizarFase();
+  atualizarTabs();
+  atualizarBarraInferior();
+}
+
+/* ══════════════════════════════════════════════
+   RENDER
+══════════════════════════════════════════════ */
+function renderizarTudo() {
+  if (!_dados.entidade) { abrirModalEntidade(); return; }
+  if (!_iter) { renderizarSetup(); return; }
+  atualizarEntityBar();
+  atualizarTabs();
+  // Garante largura correta para a fase atual
+  const main = document.querySelector('.main');
+  if (main) main.classList.toggle('full-width', _fase === 'enviando');
+  renderizarFase();
+  atualizarBarraInferior();
+  document.getElementById('bottom-bar').style.display = '';
+}
+
+function renderizarSetup() {
+  document.getElementById('bottom-bar').style.display = 'none';
+  document.getElementById('main-content').innerHTML = `
+    <div class="setup-panel">
+      <div style="font-size:2.5rem;margin-bottom:12px">📋</div>
+      <h2>Nova competência</h2>
+      <p>Selecione a competência para iniciar o controle de envio</p>
+      <div class="setup-row">
+        <div class="setup-field">
+          <label>Mês</label>
+          <select id="setup-mes">
+            <option value="01">01 — Janeiro</option><option value="02">02 — Fevereiro</option>
+            <option value="03" selected>03 — Março</option><option value="04">04 — Abril</option>
+            <option value="05">05 — Maio</option><option value="06">06 — Junho</option>
+            <option value="07">07 — Julho</option><option value="08">08 — Agosto</option>
+            <option value="09">09 — Setembro</option><option value="10">10 — Outubro</option>
+            <option value="11">11 — Novembro</option><option value="12">12 — Dezembro</option>
+          </select>
+        </div>
+        <div class="setup-field">
+          <label>Ano</label>
+          <input type="text" id="setup-ano" value="2026" maxlength="4" style="width:90px">
+        </div>
+        <button class="btn btn-primary" onclick="iniciarNovaCompetencia()">▶ Iniciar</button>
+      </div>
+    </div>`;
+  atualizarEntityBar();
+}
+
+async function iniciarNovaCompetencia() {
+  const mes = document.getElementById('setup-mes').value;
+  const ano = document.getElementById('setup-ano').value.trim();
+  if (!ano.match(/^\d{4}$/)) { alert('Informe um ano válido.'); return; }
+  await criarIteracao(`${ano}-${mes}`);
+  renderizarTudo();
+}
+
+function setFase(fase) {
+  _fase = fase;
+  document.querySelectorAll('.phase-tab').forEach(t => t.classList.toggle('active', t.dataset.fase === fase));
+  // Largura total no Enviando, normal nas demais
+  const main = document.querySelector('.main');
+  if (main) main.classList.toggle('full-width', fase === 'enviando');
+  renderizarFase();
+}
+
+function renderizarFase() {
+  if (!_iter) return;
+  const etapas    = _iter.fases[_fase];
+  const pendentes = etapas.filter(e => e.status === 'pendente').length;
+  const barraAcao = pendentes > 0
+    ? `<div class="fase-action-bar">
+        <button class="btn btn-ok btn-sm" onclick="marcarTodosOk()">✅ Marcar todos como OK (${pendentes})</button>
+       </div>`
+    : '';
+  const stepsHtml = barraAcao + etapas.map((e, idx) => renderEtapaCard(e, idx)).join('');
+
+  if (_fase === 'enviando') {
+    document.getElementById('main-content').innerHTML = `
+      <div class="split-layout">
+        <div class="split-steps">${stepsHtml}</div>
+        <div>${renderViewerPanel()}</div>
+      </div>`;
+    // Restaura iframe se já tinha arquivo carregado
+    if (_blobUrl) {
+      document.getElementById('viewer-empty').style.display  = 'none';
+      document.getElementById('resultado-iframe').style.display = '';
+      document.getElementById('resultado-iframe').src = _blobUrl;
+      document.getElementById('btn-atualizar').disabled = false;
+    }
+  } else {
+    document.getElementById('main-content').innerHTML = stepsHtml;
+  }
+}
+
+function renderViewerPanel() {
+  return `<div class="viewer-card">
+    <div class="viewer-header">
+      <span class="viewer-title">📄 Resultado do lote</span>
+      <div class="viewer-actions">
+        <button class="btn btn-ghost btn-sm" onclick="selecionarArquivoResultado()">📂 Abrir arquivo</button>
+        <button class="btn btn-ghost btn-sm" id="btn-atualizar" onclick="atualizarResultado()" disabled>↻ Atualizar</button>
+        <span class="viewer-ts" id="viewer-ts"></span>
+      </div>
+    </div>
+    <div class="viewer-body">
+      <div class="viewer-empty" id="viewer-empty">
+        <div class="icon">📄</div>
+        <p>Selecione o arquivo HTML de resultado do lote</p>
+        <p style="font-size:.75rem;color:#aaa">resultado-consulta-lote-XXXXXX.html</p>
+        <button class="btn btn-primary btn-sm" onclick="selecionarArquivoResultado()">📂 Selecionar arquivo</button>
+      </div>
+      <iframe id="resultado-iframe" style="display:none" sandbox="allow-scripts allow-same-origin"></iframe>
+    </div>
+  </div>`;
+}
+
+function renderEtapaCard(etapa, idx) {
+  const statusIcon = etapa.status === 'ok' ? '✅' : etapa.status === 'com_erros' ? '⚠️' : '⏳';
+  const errosHtml = etapa.erros.map((err, ei) => `
+    <div class="erro-item">
+      <div class="erro-item-num">Erro ${ei+1}</div>
+      <div class="erro-desc-label">Descrição do erro</div>
+      <div class="erro-desc-val">${escHtml(err.descricao)}</div>
+      <div class="erro-sol-label">Solução adotada</div>
+      <div class="erro-sol-val">${escHtml(err.solucao || '—')}</div>
+      <button class="btn-rem-erro" onclick="removerErro('${_fase}',${idx},'${err.id}')" title="Remover erro">×</button>
+    </div>`).join('');
+
+  return `
+  <div class="etapa-card ${etapa.status}" id="card-${_fase}-${idx}">
+    <div class="etapa-header">
+      <span class="etapa-codigo">[${etapa.codigo}]</span>
+      <span class="etapa-nome">${escHtml(etapa.nome)}</span>
+      <span class="etapa-status-icon">${statusIcon}</span>
+    </div>
+    <div class="etapa-actions">
+      <button class="btn btn-ok"    onclick="marcarEtapa('${_fase}',${idx},'ok')">✅ OK</button>
+      <button class="btn btn-erros" onclick="marcarEtapaComErros('${_fase}',${idx})">⚠️ Com erros</button>
+    </div>
+    <div class="etapa-undo">
+      <span class="undo-label">${etapa.status === 'ok' ? '✅ Marcado como OK' : '⚠️ Com erros registrados'}</span>
+      <button class="btn-undo" onclick="resetarEtapa('${_fase}',${idx})">↺ Desfazer</button>
+    </div>
+    <div class="erros-section">
+      ${errosHtml}
+      <div class="erro-form hidden" id="form-${_fase}-${idx}">
+        <div style="font-size:.78rem;font-weight:700;color:var(--orange);margin-bottom:8px">➕ Novo erro</div>
+        <label style="font-size:.7rem;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Descrição do erro</label>
+        <textarea id="ferr-desc-${_fase}-${idx}" rows="2" placeholder="Cole ou descreva a mensagem de erro..."></textarea>
+        <label style="font-size:.7rem;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Solução adotada</label>
+        <textarea id="ferr-sol-${_fase}-${idx}" rows="2" placeholder="O que foi feito para resolver..."></textarea>
+        <div class="erro-form-row">
+          <button class="btn btn-ok btn-sm" onclick="confirmarAdicionarErro('${_fase}',${idx})">✅ Adicionar</button>
+          <button class="btn btn-ghost btn-sm" onclick="cancelarFormErro('${_fase}',${idx})">Cancelar</button>
+        </div>
+      </div>
+      <button class="btn btn-erros btn-sm" id="btn-add-${_fase}-${idx}" onclick="mostrarFormErro('${_fase}',${idx})" style="margin-top:${etapa.erros.length ? '4' : '0'}px">+ Adicionar erro</button>
+    </div>
+  </div>`;
+}
+
+function marcarEtapaComErros(fase, idx) {
+  marcarEtapa(fase, idx, 'com_erros');
+  // After render, open the error form
+  setTimeout(() => mostrarFormErro(fase, idx), 50);
+}
+
+function mostrarFormErro(fase, idx) {
+  document.getElementById(`form-${fase}-${idx}`)?.classList.remove('hidden');
+  document.getElementById(`btn-add-${fase}-${idx}`)?.style.setProperty('display', 'none');
+  document.getElementById(`ferr-desc-${fase}-${idx}`)?.focus();
+}
+
+function cancelarFormErro(fase, idx) {
+  document.getElementById(`form-${fase}-${idx}`)?.classList.add('hidden');
+  document.getElementById(`btn-add-${fase}-${idx}`)?.style.setProperty('display', '');
+}
+
+function confirmarAdicionarErro(fase, idx) {
+  const desc = document.getElementById(`ferr-desc-${fase}-${idx}`)?.value || '';
+  const sol  = document.getElementById(`ferr-sol-${fase}-${idx}`)?.value  || '';
+  if (!desc.trim()) { alert('Descreva o erro antes de adicionar.'); return; }
+  adicionarErro(fase, idx, desc, sol);
+}
+
+/* ── Viewer de resultado do lote ── */
+async function selecionarArquivoResultado() {
+  // File System Access API (Chrome/Edge) — mantém handle para re-leitura
+  if (window.showOpenFilePicker) {
+    try {
+      const [handle] = await window.showOpenFilePicker({
+        types: [{ description: 'Resultado HTML', accept: { 'text/html': ['.html', '.htm'] } }],
+        multiple: false,
+      });
+      _fileHandle = handle;
+      await atualizarResultado();
+      return;
+    } catch (e) {
+      if (e.name === 'AbortError') return; // usuário cancelou
+    }
+  }
+  // Fallback: input file clássico (Firefox / outros)
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = '.html,.htm';
+  input.onchange = async () => {
+    if (!input.files[0]) return;
+    await _carregarFileObject(input.files[0]);
+  };
+  input.click();
+}
+
+async function atualizarResultado() {
+  try {
+    let file;
+    if (_fileHandle) {
+      file = await _fileHandle.getFile();
+    } else return;
+    await _carregarFileObject(file);
+  } catch (e) {
+    toast('Erro ao atualizar: ' + e.message);
+  }
+}
+
+async function _carregarFileObject(file) {
+  const content = await file.text();
+  // Libera blob anterior
+  if (_blobUrl) URL.revokeObjectURL(_blobUrl);
+  _blobUrl = URL.createObjectURL(new Blob([content], { type: 'text/html' }));
+
+  const iframe = document.getElementById('resultado-iframe');
+  const empty  = document.getElementById('viewer-empty');
+  const btnAt  = document.getElementById('btn-atualizar');
+  const ts     = document.getElementById('viewer-ts');
+
+  if (iframe) {
+    iframe.src = _blobUrl;
+    iframe.style.display = '';
+  }
+  if (empty)  empty.style.display  = 'none';
+  if (btnAt)  btnAt.disabled = false;
+  if (ts)     ts.textContent = `Atualizado: ${new Date().toLocaleTimeString('pt-BR')}`;
+}
+
+/* ── Tabs update ── */
+function atualizarTabs() {
+  if (!_iter) return;
+  for (const fase of FASES) {
+    const etapas  = _iter.fases[fase];
+    const total   = etapas.length;
+    const concl   = etapas.filter(e => e.status !== 'pendente').length;
+    const temErro = etapas.some(e => e.status === 'com_erros');
+    const tudo_ok = concl === total && !temErro;
+    const icon    = tudo_ok ? '✅' : temErro ? '⚠️' : concl > 0 ? '🔄' : '';
+    const cnt = document.getElementById(`cnt-${fase}`);
+    if (cnt) cnt.textContent = `${concl}/${total}`;
+    const tab = document.querySelector(`.phase-tab[data-fase="${fase}"]`);
+    if (tab) {
+      const label = { gerando:'📤 Gerando', validando:'🔍 Validando', enviando:'📨 Enviando', finalizando:'🏁 Finalizando' }[fase];
+      tab.childNodes[0].textContent = (icon ? icon + ' ' : '') + label + ' ';
+    }
+  }
+}
+
+/* ── Bottom bar ── */
+function atualizarBarraInferior() {
+  if (!_iter) return;
+  let total = 0, concl = 0;
+  for (const fase of FASES) {
+    total += _iter.fases[fase].length;
+    concl += _iter.fases[fase].filter(e => e.status !== 'pendente').length;
+  }
+  const pct = total > 0 ? Math.round(concl / total * 100) : 0;
+  document.getElementById('progress-text').textContent = `${concl}/${total} etapas concluídas`;
+  document.getElementById('progress-fill').style.width = pct + '%';
+}
+
+/* ── Entity bar / Seletor ── */
+function atualizarEntityBar() {
+  const ativas = _dados.historico.filter(i => i.status === 'em_andamento');
+  const label  = _iter ? labelIteracao(_iter) : (ativas.length ? 'Selecione uma execução ▾' : 'Nenhuma execução ativa');
+  document.getElementById('seletor-label').textContent = label;
+}
+
+function labelIteracao(iter) {
+  const [ano, mes] = (iter.competencia || '-').split('-');
+  const meses = ['','Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const entNome = iter.entidade?.nome || _dados.entidade?.nome || '—';
+  return `${entNome} — ${meses[parseInt(mes)] || mes}/${ano} (${iter.iteracao}ª iter.)`;
+}
+
+function toggleSeletor() {
+  const dd = document.getElementById('seletor-dropdown');
+  if (dd.classList.contains('hidden')) abrirSeletor();
+  else fecharSeletor();
+}
+
+function abrirSeletor() {
+  const dd = document.getElementById('seletor-dropdown');
+  const ativas     = _dados.historico.filter(i => i.status === 'em_andamento');
+  const concluidas = _dados.historico.filter(i => i.status === 'concluido').slice(-3).reverse();
+
+  let html = '';
+  if (ativas.length) {
+    html += `<div style="padding:8px 14px 4px;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--gray)">Em andamento</div>`;
+    html += ativas.map(i => `
+      <div class="seletor-item${_iter?._docId === i._docId ? ' ativo' : ''}" onclick="selecionarIteracao('${i._docId}')">
+        <span style="font-size:1rem">🔄</span>
+        <div class="seletor-item-info">
+          <div class="seletor-item-title">${escHtml(labelIteracao(i))}</div>
+          <div class="seletor-item-sub">${progresso(i)} · iniciado ${new Date(i.dataInicio).toLocaleDateString('pt-BR')}</div>
+        </div>
+        ${_iter?._docId === i._docId ? '<span class="seletor-check">✓</span>' : ''}
+      </div>`).join('');
+  }
+  if (concluidas.length) {
+    html += `<div style="padding:8px 14px 4px;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--gray)">Recentes concluídas</div>`;
+    html += concluidas.map(i => `
+      <div class="seletor-item" onclick="selecionarIteracao('${i._docId}')">
+        <span style="font-size:1rem">✅</span>
+        <div class="seletor-item-info">
+          <div class="seletor-item-title">${escHtml(labelIteracao(i))}</div>
+          <div class="seletor-item-sub">${progresso(i)} · ${new Date(i.dataInicio).toLocaleDateString('pt-BR')}</div>
+        </div>
+      </div>`).join('');
+  }
+  if (!html) {
+    html = `<div style="padding:16px;text-align:center;color:var(--gray);font-size:.82rem">Nenhuma execução ainda</div>`;
+  }
+  dd.innerHTML = html;
+  dd.classList.remove('hidden');
+  // Fechar ao clicar fora
+  setTimeout(() => document.addEventListener('click', _fecharSeletorFora, { once: true }), 10);
+}
+
+function fecharSeletor() {
+  document.getElementById('seletor-dropdown').classList.add('hidden');
+}
+
+function _fecharSeletorFora(e) {
+  if (!document.getElementById('seletor-dropdown').contains(e.target) &&
+      !document.getElementById('btn-seletor').contains(e.target)) {
+    fecharSeletor();
+  }
+}
+
+function progresso(iter) {
+  let total = 0, concl = 0;
+  for (const fase of FASES) {
+    total += iter.fases[fase].length;
+    concl += iter.fases[fase].filter(e => e.status !== 'pendente').length;
+  }
+  return `${concl}/${total} etapas`;
+}
+
+/* ══════════════════════════════════════════════
+   ITERAÇÃO
+══════════════════════════════════════════════ */
+async function novaIteracao() {
+  // Cria nova execução SEM fechar a atual — abre tela de seleção de competência
+  fecharSeletor();
+  _iter = null;   // temporariamente sem seleção para mostrar o setup
+  renderizarSetup();
+}
+
+async function concluirIteracao() {
+  if (!_iter) return;
+  if (!confirm('Marcar esta execução como CONCLUÍDA?\n\nEla ficará no histórico e não poderá mais ser editada.')) return;
+  _iter.status = 'concluido';
+  _iter.dataFim = new Date().toISOString();
+  await salvar();
+  // Selecionar a próxima em andamento, se houver
+  const proxima = _dados.historico.find(i => i.status === 'em_andamento' && i._docId !== _iter._docId);
+  _iter = proxima || null;
+  renderizarTudo();
+}
+
+function selecionarIteracao(docId) {
+  const iter = _dados.historico.find(i => i._docId === docId);
+  if (iter) { _iter = iter; }
+  fecharSeletor();
+  renderizarTudo();
+}
+
+/* ══════════════════════════════════════════════
+   MODAL ENTIDADE
+══════════════════════════════════════════════ */
+function abrirModalEntidade() {
+  const e = _dados.entidade || {};
+  document.getElementById('ent-nome').value      = e.nome      || '';
+  document.getElementById('ent-codigo').value    = e.codigo    || '';
+  document.getElementById('ent-municipio').value = e.municipio || '';
+  document.getElementById('btn-entidade-cancelar').style.display = _dados.entidade ? '' : 'none';
+  document.getElementById('modal-entidade').classList.remove('hidden');
+}
+
+function fecharModalEntidade() {
+  document.getElementById('modal-entidade').classList.add('hidden');
+}
+
+async function salvarEntidade() {
+  const nome = document.getElementById('ent-nome').value.trim();
+  if (!nome) { alert('Informe o nome da entidade.'); return; }
+  _dados.entidade = {
+    nome,
+    codigo:    document.getElementById('ent-codigo').value.trim(),
+    municipio: document.getElementById('ent-municipio').value.trim(),
+  };
+  salvarEntidadeLocal();
+  // Atualiza entidade na iteração ativa no Firestore também
+  if (_iter) { _iter.entidade = _dados.entidade; await salvar(); }
+  fecharModalEntidade();
+  renderizarTudo();
+}
+
+/* ══════════════════════════════════════════════
+   MODAL HISTÓRICO
+══════════════════════════════════════════════ */
+function abrirModalHistorico() {
+  const hist = _dados.historico;
+  if (!hist.length) {
+    document.getElementById('historico-conteudo').innerHTML = '<p style="color:var(--gray);text-align:center;padding:20px">Nenhum registro ainda.</p>';
+  } else {
+    // Group by competencia
+    const grupos = {};
+    hist.forEach(i => { (grupos[i.competencia] = grupos[i.competencia] || []).push(i); });
+    let html = '';
+    for (const [comp, iters] of Object.entries(grupos).reverse()) {
+      const [ano, mes] = comp.split('-');
+      const meses = ['','Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+      html += `<div class="hist-group"><div class="hist-group-title">${meses[parseInt(mes)]}/${ano}</div>`;
+      iters.forEach(i => {
+        const total  = FASES.reduce((s,f) => s + i.fases[f].length, 0);
+        const concl  = FASES.reduce((s,f) => s + i.fases[f].filter(e=>e.status!=='pendente').length, 0);
+        const erros  = FASES.reduce((s,f) => s + i.fases[f].filter(e=>e.status==='com_erros').length, 0);
+        const datStr = new Date(i.dataInicio).toLocaleDateString('pt-BR');
+        const stCls  = i.status === 'em_andamento' ? 'hist-status-and' : erros ? 'hist-status-done' : 'hist-status-ok';
+        const stIco  = i.status === 'em_andamento' ? '🔄' : erros ? '⚠️' : '✅';
+        html += `<div class="hist-item">
+          <span style="font-size:1.2rem">${stIco}</span>
+          <div class="hist-item-info">
+            <div class="hist-item-title ${stCls}">${i.iteracao}ª iteração ${i.status === 'em_andamento' ? '(em andamento)' : ''}</div>
+            <div class="hist-item-sub">Iniciado em ${datStr} · ${concl}/${total} etapas · ${erros} com erros</div>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="exportarIteracao('${i.id}')">📄 Markdown</button>
+        </div>`;
+      });
+      html += '</div>';
+    }
+    document.getElementById('historico-conteudo').innerHTML = html;
+  }
+  document.getElementById('modal-historico').classList.remove('hidden');
+}
+
+function fecharModalHistorico() {
+  document.getElementById('modal-historico').classList.add('hidden');
+}
+
+function exportarIteracao(id) {
+  const iter = _dados.historico.find(i => i.id === id);
+  if (!iter) return;
+  const md = construirMarkdown(iter);
+  navigator.clipboard.writeText(md).then(() => {
+    fecharModalHistorico();
+    toast('📋 Markdown copiado!');
+  }).catch(() => alert(md));
+}
+
+/* ══════════════════════════════════════════════
+   GERAÇÃO DE MARKDOWN
+══════════════════════════════════════════════ */
+function gerarMarkdown() {
+  if (!_iter) return;
+  const md = construirMarkdown(_iter);
+  navigator.clipboard.writeText(md).then(() => toast('📋 Markdown copiado para o clipboard!')).catch(() => {
+    // Fallback: show in modal
+    const box = document.createElement('div');
+    box.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px';
+    box.innerHTML = `<div style="background:#fff;border-radius:12px;padding:20px;max-width:700px;width:100%;max-height:80vh;overflow-y:auto">
+      <div style="font-weight:700;margin-bottom:10px">📄 Markdown gerado (copie manualmente):</div>
+      <textarea style="width:100%;height:300px;font-family:monospace;font-size:.78rem;border:1px solid #ddd;border-radius:6px;padding:10px" readonly>${md}</textarea>
+      <div style="margin-top:10px;text-align:right"><button onclick="this.closest('div[style]').remove()" style="padding:7px 16px;background:#1a3a6b;color:#fff;border:none;border-radius:7px;cursor:pointer">Fechar</button></div>
+    </div>`;
+    document.body.appendChild(box);
+  });
+}
+
+function construirMarkdown(iter) {
+  const e = _dados.entidade || {};
+  const [ano, mes] = iter.competencia.split('-');
+  const meses = ['','Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const numeral = ['','1ª','2ª','3ª','4ª','5ª','6ª','7ª','8ª','9ª'];
+  const datStr = new Date(iter.dataInicio).toLocaleDateString('pt-BR');
+  const hn = (n) => numeral[n] || `${n}ª`;
+
+  let md = `# e-Sfinge Tributos — ${e.nome || 'Entidade'}\n`;
+  md += `**Competência:** ${meses[parseInt(mes)]}/${ano}`;
+  if (e.codigo) md += ` | **Código:** ${e.codigo}`;
+  md += ` | **Iteração:** ${hn(iter.iteracao)} | **Data:** ${datStr}\n\n---\n\n`;
+
+  const FASE_ICONS = { gerando:'📤', validando:'🔍', enviando:'📨', finalizando:'🏁' };
+
+  for (const fase of FASES) {
+    const etapas = iter.fases[fase];
+    const temAlgo = etapas.some(e => e.status !== 'pendente');
+    if (!temAlgo) continue;
+
+    md += `## ${FASE_ICONS[fase]} ${FASE_LABELS[fase]}\n\n`;
+    etapas.forEach(etapa => {
+      if (etapa.status === 'pendente') return;
+      const icone = etapa.status === 'ok' ? '✅' : '⚠️';
+      const label = etapa.status === 'ok' ? 'OK' : 'COM ERROS';
+      md += `${icone} **[${etapa.codigo}]** ${etapa.nome} — *${label}*\n`;
+      if (etapa.erros.length) {
+        etapa.erros.forEach((err, i) => {
+          md += `\n> **Erro ${i+1}:** ${err.descricao}\n`;
+          if (err.solucao) md += `> **Solução:** ${err.solucao}\n`;
+        });
+        md += '\n';
+      }
+    });
+    md += '\n---\n\n';
+  }
+
+  md += `*Gerado em ${new Date().toLocaleString('pt-BR')} pelo Check list Tributos — e-Sfinge*\n`;
+  return md;
+}
+
+/* ══════════════════════════════════════════════
+   UTILS
+══════════════════════════════════════════════ */
+function uid() {
+  return 'xxxx-xxxx-4xxx-yxxx'.replace(/[xy]/g, c => {
+    const r = Math.random()*16|0; return (c==='x' ? r : (r&0x3|0x8)).toString(16);
+  });
+}
+
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function toast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2800);
+}
+
+const FASE_LABELS_MAP = { gerando:'Gerando', validando:'Validando', enviando:'Enviando', finalizando:'Finalizando' };
+
+/* ══════════════════════════════════════════════
+   INIT
+══════════════════════════════════════════════ */
+carregarEntidadeLocal();
+iniciarFirebase(); // onSnapshot chamará renderizarTudo() automaticamente
+</script>
+</body>
+</html>

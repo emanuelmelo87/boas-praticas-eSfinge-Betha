@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Executor e-Sfinge — TCE/SC</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --blue:    #1a3a6b; --blue-mid: #1e4a8a;
+      --orange:  #F47920; --red: #dc2626; --yellow: #d97706; --green: #16a34a;
+      --gray:    #6b7280; --gray-bg: #f0f2f5; --border: #e2e8f0;
+      --shadow:  0 2px 10px rgba(0,0,0,.07);
+    }
+
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--gray-bg); color: #1a1a2e; }
+
+    /* ── Topbar ── */
+    .topbar { background: var(--blue); color: #fff; padding: 14px 24px; display: flex; align-items: center; gap: 12px; }
+    .topbar a { color: rgba(255,255,255,.7); text-decoration: none; font-size: .82rem; }
+    .topbar a:hover { color: #fff; }
+    .topbar-sep { color: rgba(255,255,255,.3); margin: 0 4px; }
+    .topbar-icon { width: 34px; height: 34px; background: rgba(255,255,255,.15); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+    .topbar-title { font-weight: 700; font-size: .95rem; }
+    .topbar-sub   { font-size: .72rem; opacity: .7; }
+
+    /* ── Layout ── */
+    .main { max-width: 960px; margin: 0 auto; padding: 20px 20px 56px; display: flex; flex-direction: column; gap: 14px; }
+
+    /* ── Card ── */
+    .card { background: #fff; border-radius: 12px; box-shadow: var(--shadow); padding: 20px 22px; }
+    .card h2 { font-size: .88rem; font-weight: 700; color: var(--blue); margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid #eef0f4; display: flex; align-items: center; gap: 6px; }
+    .step-badge { background: var(--blue); color: #fff; border-radius: 50%; width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; font-size: .68rem; font-weight: 700; flex-shrink: 0; }
+
+    /* ── Form ── */
+    .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .field { margin-bottom: 10px; }
+    .field:last-child { margin-bottom: 0; }
+    label { display: block; font-size: .7rem; font-weight: 700; color: #555; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; }
+    input, select { width: 100%; padding: 8px 11px; border: 1.5px solid var(--border); border-radius: 7px; font-size: .88rem; color: #1a1a2e; background: #fafbfc; transition: border-color .2s; }
+    input:focus, select:focus { outline: none; border-color: var(--blue); background: #fff; }
+    .field-row { display: flex; gap: 8px; align-items: flex-end; }
+    .field-row input { flex: 1; }
+    .info-tag { font-size: .75rem; color: var(--gray); font-style: italic; margin-top: 4px; min-height: 1.2em; }
+    .info-tag.ok  { color: var(--green); font-style: normal; font-weight: 600; }
+    .info-tag.err { color: var(--red);   font-style: normal; }
+
+    /* ── Buttons ── */
+    .btn { padding: 9px 20px; border: none; border-radius: 8px; font-size: .85rem; font-weight: 700; cursor: pointer; transition: .15s; display: inline-flex; align-items: center; gap: 6px; }
+    .btn:disabled { opacity: .45; cursor: not-allowed; }
+    .btn-primary { background: var(--blue); color: #fff; }
+    .btn-primary:not(:disabled):hover { background: var(--blue-mid); }
+    .btn-danger  { background: #fde8e8; color: var(--red); }
+    .btn-danger:not(:disabled):hover  { background: #fbd5d5; }
+    .btn-ghost   { background: #f1f5f9; color: #374151; }
+    .btn-ghost:not(:disabled):hover   { background: #e2e8f0; }
+
+    /* ── Status bar ── */
+    .status-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    .status-label { font-size: .75rem; font-weight: 700; color: var(--gray); text-transform: uppercase; letter-spacing: .04em; }
+    .status-val { font-size: .9rem; font-weight: 700; flex: 1; }
+    .status-val.ok   { color: var(--green); }
+    .status-val.erro { color: var(--red); }
+    .status-val.run  { color: var(--blue); }
+
+    /* ── Progress bar ── */
+    .progress-wrap { background: #e9ecef; border-radius: 99px; height: 6px; overflow: hidden; margin-top: 8px; }
+    .progress-bar  { height: 100%; background: var(--blue); border-radius: 99px; transition: width .5s; width: 0%; }
+
+    /* ── Terminal log ── */
+    .terminal {
+      background: #0d1117; color: #c9d1d9;
+      border-radius: 10px; padding: 16px;
+      font-family: 'Cascadia Code', 'Consolas', 'Courier New', monospace;
+      font-size: .78rem; line-height: 1.65;
+      height: 380px; overflow-y: auto;
+      white-space: pre-wrap; word-break: break-word;
+    }
+    .terminal .log-ok    { color: #3fb950; }
+    .terminal .log-err   { color: #f85149; }
+    .terminal .log-warn  { color: #d29922; }
+    .terminal .log-info  { color: #58a6ff; }
+    .terminal .log-dim   { color: #6e7681; }
+    .terminal .log-sep   { color: #484f58; }
+
+    /* ── Relatório ── */
+    #relatorio-section { display: none; }
+    .relatorio-box { background: #f8fafc; border-radius: 8px; padding: 16px; font-size: .82rem; line-height: 1.7; border: 1px solid var(--border); white-space: pre-wrap; font-family: monospace; }
+    .badge-status { display: inline-block; padding: 4px 14px; border-radius: 99px; font-size: .82rem; font-weight: 700; }
+    .badge-ok    { background: #dcfce7; color: var(--green); }
+    .badge-erro  { background: #fde8e8; color: var(--red); }
+    .badge-inter { background: #fef3c7; color: var(--yellow); }
+
+    /* ── CORS banner ── */
+    .cors-banner { background: #fef3c7; border: 1px solid #fcd34d; border-radius: 10px; padding: 14px 18px; font-size: .82rem; color: #92400e; }
+    .cors-banner code { background: #1a1a2e; color: #a8d8a8; padding: 8px 12px; border-radius: 6px; display: block; margin: 8px 0; font-size: .75rem; white-space: pre-wrap; }
+
+    /* ── Checkbox row ── */
+    .check-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: .83rem; cursor: pointer; }
+    .check-row input[type=checkbox] { width: auto; margin: 0; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="index.html">← Central</a>
+  <span class="topbar-sep">|</span>
+  <div class="topbar-icon">⚙️</div>
+  <div>
+    <div class="topbar-title">Executor e-Sfinge Tributos</div>
+    <div class="topbar-sub">Automação das 9 etapas de geração e validação</div>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- CORS warning (hidden after first successful call) -->
+  <div id="cors-banner" class="cors-banner" style="display:none">
+    <strong>⚠️ Verificar compatibilidade antes do primeiro uso</strong><br>
+    Cole o snippet abaixo no console do browser (F12) com suas credenciais reais para confirmar que as APIs Betha aceitam chamadas diretas:
+    <code>fetch('https://plataforma-licencas.betha.cloud/licenses/v0.1/api/entidades/atual/', {
+  headers: { 'Authorization': 'bearer SEU_TOKEN', 'User-Access': 'SEU_USER_ACCESS' }
+}).then(r => console.log('✅ STATUS:', r.status)).catch(e => console.error('❌ CORS:', e))</code>
+    Se retornar <strong>❌ CORS error</strong>, entre em contato para configurar um servidor proxy.
+  </div>
+
+  <!-- Card 1: Credenciais -->
+  <div class="card">
+    <h2><span class="step-badge">1</span> Credenciais</h2>
+    <div class="field">
+      <label>Authorization (token — sem a palavra "bearer")</label>
+      <div class="field-row">
+        <input type="password" id="authorization" placeholder="eyJhbGciOi..." autocomplete="off">
+        <button class="btn btn-ghost" onclick="consultarEntidade()">🔍 Consultar entidade</button>
+      </div>
+      <div class="info-tag" id="entidade-info"></div>
+    </div>
+    <div class="field">
+      <label>User-Access</label>
+      <input type="text" id="userAccess" placeholder="Cole o User-Access aqui" autocomplete="off">
+    </div>
+  </div>
+
+  <!-- Card 2: Competência -->
+  <div class="card">
+    <h2><span class="step-badge">2</span> Competência</h2>
+    <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:6px">
+      <div class="field" style="margin:0;width:160px">
+        <label>Mês de competência</label>
+        <select id="mes">
+          <option value="01">01 — Janeiro</option><option value="02">02 — Fevereiro</option>
+          <option value="03" selected>03 — Março</option><option value="04">04 — Abril</option>
+          <option value="05">05 — Maio</option><option value="06">06 — Junho</option>
+          <option value="07">07 — Julho</option><option value="08">08 — Agosto</option>
+          <option value="09">09 — Setembro</option><option value="10">10 — Outubro</option>
+          <option value="11">11 — Novembro</option><option value="12">12 — Dezembro</option>
+        </select>
+      </div>
+      <div class="field" style="margin:0;width:100px">
+        <label>Ano</label>
+        <input type="text" id="ano" value="2026" maxlength="4">
+      </div>
+      <button class="btn btn-ghost" onclick="consultarEncerramento()" style="margin-bottom:1px">📅 Consultar encerramentos</button>
+    </div>
+    <div class="info-tag" id="encerramento-info"></div>
+  </div>
+
+  <!-- Card 3: Configuração da Execução -->
+  <div class="card">
+    <h2><span class="step-badge">3</span> Configuração da Execução</h2>
+
+    <div class="field">
+      <label>Iniciar na etapa (opcional)</label>
+      <select id="etapa-inicial">
+        <option value="">— do início (etapa 01) —</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>Iniciar no assunto — somente se iniciar na etapa 01 (opcional)</label>
+      <select id="assunto-inicial">
+        <option value="">— do início —</option>
+      </select>
+    </div>
+
+    <label class="check-row" style="margin-top:6px">
+      <input type="checkbox" id="visibilidade" checked>
+      Visibilidade da execução pública
+    </label>
+  </div>
+
+  <!-- Card 3: Ação + Status -->
+  <div class="card">
+    <div class="status-row">
+      <button class="btn btn-primary" id="btn-executar" onclick="iniciarExecucao()">▶ Executar</button>
+      <button class="btn btn-danger"  id="btn-parar"    onclick="pararExecucao()" disabled>⏹ Parar</button>
+      <span class="status-label">Status:</span>
+      <span class="status-val" id="status-val">Aguardando configuração...</span>
+    </div>
+    <div class="progress-wrap" style="margin-top:12px">
+      <div class="progress-bar" id="progress-bar"></div>
+    </div>
+    <div style="font-size:.7rem;color:var(--gray);margin-top:4px" id="progress-label"></div>
+  </div>
+
+  <!-- Card 4: Terminal de log -->
+  <div class="card" style="padding:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <h2 style="margin:0;border:none;padding:0">📋 Log de execução</h2>
+      <button class="btn btn-ghost" style="font-size:.75rem;padding:5px 10px" onclick="limparLog()">🗑 Limpar</button>
+    </div>
+    <div class="terminal" id="terminal"></div>
+  </div>
+
+  <!-- Card 5: Relatório (aparece após conclusão) -->
+  <div class="card" id="relatorio-section">
+    <h2>📄 Relatório final</h2>
+    <div id="relatorio-status" style="margin-bottom:12px"></div>
+    <div class="relatorio-box" id="relatorio-body"></div>
+  </div>
+
+</div>
+
+<script>
+/* ══════════════════════════════════════════════
+   CONSTANTES (para popular selects)
+══════════════════════════════════════════════ */
+const ASSUNTOS_ETAPA_01 = [
+  ['saldosIniciaisCreditoTributario',              '[00] Saldo Inicial de Créditos Tributários'],
+  ['cadastrosContribuintes',                        '[01] Cadastro Contribuinte'],
+  ['cadastrosImobiliarios',                         '[02] Cadastro Imobiliário'],
+  ['cadastrosPropriedadesImobiliarias',             '[03] Cadastro de Propriedade Imobiliária'],
+  ['lancamentosCreditosTributarios',                '[04] Lançamento de Créditos Tributários'],
+  ['cobrancaDividaAtiva',                           '[05] Cobrança de Dívida Ativa'],
+  ['inicioPrazoPrescricional',                      '[06] Início do Prazo Prescricional'],
+  ['certidaoDividaAtiva',                           '[07] Certidão de Dívida Ativa'],
+  ['situacaoTipoCobrancaDividaAtiva',               '[08] Situação do Tipo de Cobrança de Dívida Ativa'],
+  ['revisaoValorLancamentosCreditosTributarios',    '[09] Revisão de Valor de Lançamentos'],
+  ['baixasCreditosTributarios',                     '[10] Baixa dos Créditos Tributários'],
+  ['diarioGeralArrecadacao',                        '[11] Diário Geral de Arrecadação'],
+  ['estornoReceitasDiarioGeralArrecadacao',         '[12] Estorno/Restituição de Receita'],
+];
+
+const ETAPAS = [
+  { numero:1, nome:'Gerar Dados (Todos os Assuntos)',                    id:'d0463029-0757-4972-b8a3-9648d01a3a00', multi:true,  geraZip:null  },
+  { numero:2, nome:'Tratamento de Dados - Lançamentos Não Encontrados',  id:'80245d85-b749-4ea1-b1df-88ee07493b3e', multi:false, geraZip:null, ignoraErrosSeSucesso:true },
+  { numero:3, nome:'Validação de Vínculos Saldos Iniciais',              id:'bf75ff5e-4035-4adb-ad08-c7363811d3ff', multi:false, geraZip:false },
+  { numero:4, nome:'Validação de Revisões',                              id:'1b375a6e-000a-41a4-95b1-6e961a237c75', multi:false, geraZip:false },
+  { numero:5, nome:'Validação de Cobrança Dívida Ativa',                 id:'02d1a518-a662-490e-aa96-a4de13169e57', multi:false, geraZip:null  },
+  { numero:6, nome:'Validação de Lançamentos',                           id:'89c1ef52-6989-4020-a3f8-65e5fcbb1980', multi:false, geraZip:null  },
+  { numero:7, nome:'Validação de Imóveis',                               id:'6bf03f6d-3734-4e9a-b984-6aed245733ff', multi:false, geraZip:null  },
+  { numero:8, nome:'Validação de Contribuintes',                         id:'173efc4a-59b2-4c5e-afd6-1f2f5825172f', multi:false, geraZip:null  },
+  { numero:9, nome:'Validação de CONs',                                  id:'b0dac6a0-0ea0-48c7-936e-f06e88360687', multi:false, geraZip:null  },
+];
+
+const LS_HISTORY = 'esfinge-executor-cred-v1';
+
+/* ══════════════════════════════════════════════
+   ESTADO
+══════════════════════════════════════════════ */
+let _executionId  = null;
+let _eventSource  = null;
+let _relatorioCache = null;
+
+/* ══════════════════════════════════════════════
+   INIT — popular selects e restaurar histórico
+══════════════════════════════════════════════ */
+(function init() {
+  const etapaNames = [
+    'Gerar Dados (Todos os Assuntos)',
+    'Tratamento - Lançamentos Não Encontrados',
+    'Validação de Vínculos Saldos Iniciais',
+    'Validação de Revisões',
+    'Validação de Cobrança Dívida Ativa',
+    'Validação de Lançamentos',
+    'Validação de Imóveis',
+    'Validação de Contribuintes',
+    'Validação de CONs',
+  ];
+  const selEtapa = document.getElementById('etapa-inicial');
+  etapaNames.forEach((nome, i) => {
+    const opt = document.createElement('option');
+    opt.value = i + 1;
+    opt.textContent = `${String(i+1).padStart(2,'0')} — ${nome}`;
+    selEtapa.appendChild(opt);
+  });
+  ASSUNTOS_ETAPA_01.forEach(([, desc], i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = desc;
+    document.getElementById('assunto-inicial').appendChild(opt);
+  });
+  try {
+    const h = JSON.parse(localStorage.getItem(LS_HISTORY) || '{}');
+    if (h.authorization) document.getElementById('authorization').value = h.authorization;
+    if (h.userAccess)    document.getElementById('userAccess').value    = h.userAccess;
+  } catch {}
+})();
+
+/* ══════════════════════════════════════════════
+   CONSULTAR ENTIDADE — via Flask proxy
+══════════════════════════════════════════════ */
+async function consultarEntidade() {
+  const auth = document.getElementById('authorization').value.trim();
+  const ua   = document.getElementById('userAccess').value.trim();
+  const info = document.getElementById('entidade-info');
+  if (!auth || !ua) { info.textContent = 'Preencha Authorization e User-Access.'; info.className = 'info-tag err'; return; }
+  info.className = 'info-tag'; info.textContent = 'Consultando...';
+  try {
+    const resp = await fetch('/api/executor/consultar-entidade', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ authorization: auth, userAccess: ua }),
+    });
+    const d = await resp.json();
+    if (d.erro) throw new Error(d.erro);
+    info.textContent = `📌 ${d.nome} — ID ${d.id}`;
+    info.className   = 'info-tag ok';
+    localStorage.setItem(LS_HISTORY, JSON.stringify({ authorization: auth, userAccess: ua }));
+  } catch (e) {
+    info.textContent = `Erro: ${e.message}`; info.className = 'info-tag err';
+  }
+}
+
+/* ══════════════════════════════════════════════
+   CONSULTAR ENCERRAMENTOS — via Flask proxy
+══════════════════════════════════════════════ */
+async function consultarEncerramento() {
+  const auth = document.getElementById('authorization').value.trim();
+  const ua   = document.getElementById('userAccess').value.trim();
+  const ano  = document.getElementById('ano').value.trim();
+  const info = document.getElementById('encerramento-info');
+  if (!auth || !ua) { info.textContent = 'Preencha as credenciais primeiro.'; info.className = 'info-tag err'; return; }
+  info.className = 'info-tag'; info.textContent = 'Consultando...';
+  try {
+    const resp = await fetch('/api/executor/consultar-encerramento', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ authorization: auth, userAccess: ua, ano }),
+    });
+    const data = await resp.json();
+    if (data.erro) throw new Error(data.erro);
+    const MES = { JANEIRO:'Jan', FEVEREIRO:'Fev', MARCO:'Mar', ABRIL:'Abr', MAIO:'Mai', JUNHO:'Jun', JULHO:'Jul', AGOSTO:'Ago', SETEMBRO:'Set', OUTUBRO:'Out', NOVEMBRO:'Nov', DEZEMBRO:'Dez' };
+    const items = data.content || data || [];
+    const enc = [], abr = [];
+    for (const item of items) {
+      const mv  = item.mes?.valor || '';
+      const md  = MES[mv] || item.mes?.descricao || mv;
+      (item.encerrado?.valor === 'SIM' ? enc : abr).push(md);
+    }
+    info.textContent = (enc.length ? `🔒 Encerrados: ${enc.join(', ')}` : '✅ Nenhum mês encerrado') +
+                       (abr.length  ? `  |  📂 Abertos: ${abr.join(', ')}` : '');
+    info.className = 'info-tag ok';
+  } catch (e) {
+    info.textContent = `Erro: ${e.message}`; info.className = 'info-tag err';
+  }
+}
+
+/* ══════════════════════════════════════════════
+   EXECUÇÃO — via Flask SSE
+══════════════════════════════════════════════ */
+async function iniciarExecucao() {
+  const auth = document.getElementById('authorization').value.trim();
+  const ua   = document.getElementById('userAccess').value.trim();
+  const mes  = document.getElementById('mes').value;
+  const ano  = document.getElementById('ano').value.trim();
+  if (!auth || !ua)          { alert('Preencha Authorization e User-Access.'); return; }
+  if (!ano.match(/^\d{4}$/)) { alert('Informe um ano válido (4 dígitos).'); return; }
+
+  const competencia    = `${ano}-${mes}`;
+  const etapaInicial   = parseInt(document.getElementById('etapa-inicial').value)  || 1;
+  const assuntoInicial = parseInt(document.getElementById('assunto-inicial').value) || 0;
+  const visibilidade   = document.getElementById('visibilidade').checked;
+
+  localStorage.setItem(LS_HISTORY, JSON.stringify({ authorization: auth, userAccess: ua }));
+
+  limparLog();
+  document.getElementById('relatorio-section').style.display = 'none';
+  document.getElementById('btn-executar').disabled = true;
+  document.getElementById('btn-parar').disabled    = false;
+  setStatus('Iniciando...', 'run');
+
+  try {
+    const resp = await fetch('/api/executor/iniciar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ authorization: auth, userAccess: ua, competencia, etapaInicial, assuntoInicial, visibilidadePublica: visibilidade }),
+    });
+    const data = await resp.json();
+    if (data.erro) { alert('Erro ao iniciar: ' + data.erro); _resetBotoes(); return; }
+    _executionId = data.execution_id;
+  } catch (e) {
+    alert('Erro de conexão: ' + e.message); _resetBotoes(); return;
+  }
+
+  // Abre SSE stream
+  _eventSource = new EventSource(`/api/executor/stream/${_executionId}`);
+  let etapasConcluidas = 0;
+  const totalEtapas = 9 - (etapaInicial - 1);
+
+  _eventSource.onmessage = e => {
+    const { type, msg } = JSON.parse(e.data);
+    if (type === 'log') {
+      appendLog(msg);
+      if (msg.includes('══ Etapa') && msg.includes('OK')) {
+        etapasConcluidas++;
+        setProgress(etapasConcluidas, totalEtapas, '');
+      }
+    }
+    if (type === 'status') setStatus(msg, 'run');
+    if (type === 'ping')   return;
+    if (type === 'error')  { appendLog('🔴 ' + msg); _finalizarExecucao('erro'); }
+    if (type === 'done')   { _finalizarExecucao(msg); }
+  };
+  _eventSource.onerror = () => {
+    appendLog('\n⚠️ Conexão SSE perdida.');
+    _finalizarExecucao('erro');
+  };
+}
+
+async function _finalizarExecucao(statusFinal) {
+  if (_eventSource) { _eventSource.close(); _eventSource = null; }
+  _resetBotoes();
+
+  if (statusFinal === 'concluido_sucesso') {
+    setStatus('✅ Todas as etapas concluídas com sucesso!', 'ok');
+    setProgress(9, 9, '');
+  } else if (statusFinal === 'interrompido') {
+    setStatus('⚠️ Interrompido pelo usuário', '');
+  } else {
+    setStatus('🔴 Execução encerrada com erro', 'erro');
+  }
+
+  // Buscar relatório
+  try {
+    const r = await fetch(`/api/executor/relatorio/${_executionId}`);
+    if (r.ok) mostrarRelatorio(await r.json());
+  } catch {}
+}
+
+function pararExecucao() {
+  if (_executionId) {
+    fetch(`/api/executor/parar/${_executionId}`, { method: 'POST' });
+    appendLog('\n⚠️ Solicitando parada...');
+    document.getElementById('btn-parar').disabled = true;
+  }
+}
+
+function _resetBotoes() {
+  document.getElementById('btn-executar').disabled = false;
+  document.getElementById('btn-parar').disabled    = true;
+}
+
+/* ══════════════════════════════════════════════
+   UI HELPERS
+══════════════════════════════════════════════ */
+function appendLog(msg) {
+  const t   = document.getElementById('terminal');
+  const div = document.createElement('span');
+  if      (msg.includes('✅') || msg.includes('🎉'))                div.className = 'log-ok';
+  else if (msg.includes('🔴') || msg.includes('ERRO') || msg.includes('CRÍTICO')) div.className = 'log-err';
+  else if (msg.includes('⚠️') || msg.includes('Interrompido'))      div.className = 'log-warn';
+  else if (msg.includes('🔄') || msg.includes('📋') || msg.includes('🚀')) div.className = 'log-info';
+  else if (msg.startsWith('=') || msg.startsWith(' '))              div.className = 'log-sep';
+  else if (msg.includes('⏳') || msg.includes('ℹ️'))                 div.className = 'log-dim';
+  div.textContent = msg + '\n';
+  t.appendChild(div);
+  t.scrollTop = t.scrollHeight;
+}
+
+function limparLog()         { document.getElementById('terminal').innerHTML = ''; }
+function setStatus(msg, cls) { const el = document.getElementById('status-val'); el.textContent = msg; el.className = `status-val ${cls||''}`; }
+function setProgress(done, total, nome) {
+  document.getElementById('progress-bar').style.width = (total > 0 ? Math.round(done/total*100) : 0) + '%';
+  document.getElementById('progress-label').textContent = total > 0 ? `Etapa ${done}/${total}${nome?' — '+nome:''}` : '';
+}
+
+function mostrarRelatorio(rel) {
+  const etapaNames = ['','Gerar Dados','Tratamento','Vínculos Saldos','Revisões','Cobrança DA','Lançamentos','Imóveis','Contribuintes','CONs'];
+  const sec = document.getElementById('relatorio-section');
+  let badge;
+  if (rel.status === 'concluido_sucesso') badge = '<span class="badge-status badge-ok">✅ Sucesso total</span>';
+  else if (rel.status === 'erro')         badge = `<span class="badge-status badge-erro">🔴 Erro — etapa ${rel.etapa_erro} ${etapaNames[rel.etapa_erro]||''}</span>`;
+  else                                    badge = '<span class="badge-status badge-inter">⚠️ Interrompido</span>';
+  document.getElementById('relatorio-status').innerHTML = badge;
+
+  const lines = [
+    `Início : ${new Date(rel.inicio).toLocaleString('pt-BR')}`,
+    `Fim    : ${new Date(rel.fim).toLocaleString('pt-BR')}`,
+    `Status : ${rel.status}`, '',
+    'ETAPAS EXECUTADAS COM SUCESSO:',
+  ];
+  if (rel.etapas_executadas?.length) {
+    rel.etapas_executadas.forEach(e => lines.push(`  ✅ Etapa ${String(e.numero).padStart(2,'0')} — ${e.nome}`));
+  } else lines.push('  (nenhuma)');
+  if (rel.erro_detalhes) { lines.push('', 'DETALHE DO ERRO:', rel.erro_detalhes); }
+  document.getElementById('relatorio-body').textContent = lines.join('\n');
+  sec.style.display = '';
+  sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+</script>
+</body>
+</html>
