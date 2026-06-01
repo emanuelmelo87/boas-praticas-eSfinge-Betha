@@ -56,7 +56,8 @@
     .phase-tab.active .phase-count { background: var(--blue-light); color: var(--blue); }
 
     /* ── Main content ── */
-    .main { max-width: 900px; margin: 0 auto; padding: 20px 20px 80px; }
+    .main           { max-width: 900px; margin: 0 auto; padding: 20px 20px 80px; }
+    .main.full-width { max-width: none; padding: 14px 16px 80px; }
 
     /* ── Setup panel ── */
     .setup-panel {
@@ -125,16 +126,20 @@
     .erro-form textarea:focus, .erro-form input:focus { outline: none; border-color: var(--orange); }
     .erro-form-row { display: flex; gap: 6px; }
 
+    /* ── Barra de ação da fase (Todos OK) ── */
+    .fase-action-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+
     /* ── Split layout (Enviando) ── */
-    .split-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
-    @media (max-width: 800px) { .split-layout { grid-template-columns: 1fr; } }
+    .split-layout { display: grid; grid-template-columns: 360px 1fr; gap: 14px; align-items: start; }
+    @media (max-width: 900px) { .split-layout { grid-template-columns: 1fr; } }
+    .split-steps { min-width: 0; }
 
     .viewer-card { background: #fff; border-radius: 10px; box-shadow: var(--shadow); overflow: hidden; position: sticky; top: 10px; }
     .viewer-header { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--border); background: #f8fafc; flex-wrap: wrap; }
     .viewer-title  { font-size: .82rem; font-weight: 700; color: var(--blue); flex: 1; }
     .viewer-actions { display: flex; align-items: center; gap: 6px; }
     .viewer-ts { font-size: .68rem; color: var(--gray); }
-    .viewer-body { height: 600px; position: relative; }
+    .viewer-body { height: calc(100vh - 200px); min-height: 520px; position: relative; }
     .viewer-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 10px; color: var(--gray); text-align: center; padding: 20px; }
     .viewer-empty .icon { font-size: 2.5rem; }
     .viewer-empty p { font-size: .83rem; }
@@ -461,6 +466,19 @@ async function criarIteracao(competencia) {
 /* ══════════════════════════════════════════════
    ACTIONS
 ══════════════════════════════════════════════ */
+async function marcarTodosOk() {
+  if (!_iter) return;
+  const etapas    = _iter.fases[_fase];
+  const pendentes = etapas.filter(e => e.status === 'pendente');
+  if (!pendentes.length) return;
+  if (!confirm(`Marcar ${pendentes.length} etapa(s) pendente(s) como OK?`)) return;
+  pendentes.forEach(e => { e.status = 'ok'; });
+  await salvar();
+  renderizarFase();
+  atualizarTabs();
+  atualizarBarraInferior();
+}
+
 async function marcarEtapa(fase, idx, status) {
   const etapa = _iter.fases[fase][idx];
   if (!etapa) return;
@@ -512,6 +530,9 @@ function renderizarTudo() {
   if (!_iter) { renderizarSetup(); return; }
   atualizarEntityBar();
   atualizarTabs();
+  // Garante largura correta para a fase atual
+  const main = document.querySelector('.main');
+  if (main) main.classList.toggle('full-width', _fase === 'enviando');
   renderizarFase();
   atualizarBarraInferior();
   document.getElementById('bottom-bar').style.display = '';
@@ -557,13 +578,22 @@ async function iniciarNovaCompetencia() {
 function setFase(fase) {
   _fase = fase;
   document.querySelectorAll('.phase-tab').forEach(t => t.classList.toggle('active', t.dataset.fase === fase));
+  // Largura total no Enviando, normal nas demais
+  const main = document.querySelector('.main');
+  if (main) main.classList.toggle('full-width', fase === 'enviando');
   renderizarFase();
 }
 
 function renderizarFase() {
   if (!_iter) return;
-  const etapas   = _iter.fases[_fase];
-  const stepsHtml = etapas.map((e, idx) => renderEtapaCard(e, idx)).join('');
+  const etapas    = _iter.fases[_fase];
+  const pendentes = etapas.filter(e => e.status === 'pendente').length;
+  const barraAcao = pendentes > 0
+    ? `<div class="fase-action-bar">
+        <button class="btn btn-ok btn-sm" onclick="marcarTodosOk()">✅ Marcar todos como OK (${pendentes})</button>
+       </div>`
+    : '';
+  const stepsHtml = barraAcao + etapas.map((e, idx) => renderEtapaCard(e, idx)).join('');
 
   if (_fase === 'enviando') {
     document.getElementById('main-content').innerHTML = `
