@@ -132,10 +132,20 @@
     /* ── Barra de ação da fase (Todos OK) ── */
     .fase-action-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
 
-    /* ── Split layout (Enviando) ── */
-    .split-layout { display: grid; grid-template-columns: 360px 1fr; gap: 14px; align-items: start; }
-    @media (max-width: 900px) { .split-layout { grid-template-columns: 1fr; } }
+    /* ── Split layout (Enviando) — colunas redimensionáveis ── */
+    .split-layout { display: grid; grid-template-columns: var(--split-w, 360px) 10px 1fr; gap: 6px; align-items: stretch; }
+    @media (max-width: 900px) { .split-layout { grid-template-columns: 1fr; } .split-gutter { display: none; } }
     .split-steps { min-width: 0; }
+    /* Divisor arrastável */
+    .split-gutter {
+      cursor: col-resize;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 6px; background: var(--gray-bg); transition: background .15s;
+      position: sticky; top: 10px; height: calc(100vh - 160px);
+    }
+    .split-gutter:hover, .split-gutter.dragging { background: var(--blue-light); }
+    .split-gutter .grip { width: 3px; height: 40px; border-radius: 99px; background: #cbd5e1; transition: background .15s; }
+    .split-gutter:hover .grip, .split-gutter.dragging .grip { background: var(--blue); }
 
     .viewer-card { background: #fff; border-radius: 10px; box-shadow: var(--shadow); overflow: hidden; position: sticky; top: 10px; }
     .viewer-header { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--border); background: #f8fafc; flex-wrap: wrap; }
@@ -809,8 +819,11 @@ function renderizarFase() {
     document.getElementById('main-content').innerHTML = `
       <div class="split-layout">
         <div class="split-steps">${stepsHtml}</div>
+        <div class="split-gutter" title="Arraste para ajustar · dê duplo-clique para resetar"
+             onmousedown="iniciarResize(event)" ondblclick="resetarSplit()"><div class="grip"></div></div>
         <div>${renderViewerPanel()}</div>
       </div>`;
+    aplicarSplitWidth();
     // Restaura iframe se já tinha arquivo carregado
     if (_blobUrl) {
       document.getElementById('viewer-empty').style.display  = 'none';
@@ -843,6 +856,53 @@ function renderViewerPanel() {
       <iframe id="resultado-iframe" style="display:none" sandbox="allow-scripts allow-same-origin"></iframe>
     </div>
   </div>`;
+}
+
+/* ── Redimensionamento do split (Enviando) ── */
+const SPLIT_LS = 'checklist-split-w';
+const SPLIT_DEFAULT = 360;
+
+function aplicarSplitWidth() {
+  const layout = document.querySelector('.split-layout');
+  if (!layout) return;
+  const w = parseInt(localStorage.getItem(SPLIT_LS) || SPLIT_DEFAULT, 10);
+  layout.style.setProperty('--split-w', w + 'px');
+}
+
+function iniciarResize(ev) {
+  ev.preventDefault();
+  const layout = document.querySelector('.split-layout');
+  const gutter = ev.currentTarget;
+  if (!layout) return;
+  gutter.classList.add('dragging');
+  document.body.style.cursor = 'col-resize';
+  document.body.style.userSelect = 'none';
+
+  const onMove = (e) => {
+    const rect = layout.getBoundingClientRect();
+    let w = e.clientX - rect.left;
+    const min = 240;
+    const max = Math.max(min, rect.width - 320);  // garante espaço mínimo ao visualizador
+    w = Math.max(min, Math.min(max, w));
+    layout.style.setProperty('--split-w', w + 'px');
+  };
+  const onUp = () => {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    gutter.classList.remove('dragging');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    const cur = parseInt(layout.style.getPropertyValue('--split-w'), 10);
+    if (cur) localStorage.setItem(SPLIT_LS, cur);
+  };
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+}
+
+function resetarSplit() {
+  localStorage.removeItem(SPLIT_LS);
+  aplicarSplitWidth();
+  toast('↔️ Largura restaurada');
 }
 
 function renderEtapaCard(etapa, idx) {
