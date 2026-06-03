@@ -373,6 +373,7 @@
   <div>
     <span class="topbar-title">Check list e-Sfinge</span>
     <span class="topbar-tag">TRIBUTOS</span>
+    <span class="topbar-tag">ENCERRAMENTO MENSAL</span>
   </div>
 </div>
 
@@ -416,8 +417,8 @@
 
 <!-- ── Phase tabs ── -->
 <div class="phase-nav" id="phase-nav">
-  <div class="phase-tab active" data-fase="gerando"     onclick="setFase('gerando')">📤 Gerando     <span class="phase-count" id="cnt-gerando">0/13</span></div>
-  <div class="phase-tab"        data-fase="validando"   onclick="setFase('validando')">🔍 Validando   <span class="phase-count" id="cnt-validando">0/7</span></div>
+  <div class="phase-tab active" data-fase="gerando"     onclick="setFase('gerando')">📤 Gerando     <span class="phase-count" id="cnt-gerando">0/3</span></div>
+  <div class="phase-tab"        data-fase="validando"   onclick="setFase('validando')">🔍 Validando   <span class="phase-count" id="cnt-validando">0/8</span></div>
   <div class="phase-tab"        data-fase="enviando"    onclick="setFase('enviando')">📨 Enviando    <span class="phase-count" id="cnt-enviando">0/13</span></div>
   <div class="phase-tab"        data-fase="finalizando" onclick="setFase('finalizando')">🏁 Finalizando <span class="phase-count" id="cnt-finalizando">0/1</span></div>
 </div>
@@ -450,28 +451,19 @@ let _db = null;
 
 const DEF = {
   gerando: [
-    { codigo:'00', nome:'Saldo Inicial de Créditos Tributários e Não Tributários/Inscrição em Dívida Ativa' },
-    { codigo:'01', nome:'Cadastro Contribuinte' },
-    { codigo:'02', nome:'Cadastro Imobiliário' },
-    { codigo:'03', nome:'Cadastro de Propriedade Imobiliária' },
-    { codigo:'04', nome:'Lançamento de Créditos Tributários/Inscrição em Dívida Ativa' },
-    { codigo:'05', nome:'Cobrança de Dívida Ativa' },
-    { codigo:'06', nome:'Início do Prazo Prescricional' },
-    { codigo:'07', nome:'Certidão de Dívida Ativa' },
-    { codigo:'08', nome:'Situação do Tipo de Cobrança de Dívida Ativa' },
-    { codigo:'09', nome:'Revisão de Valor de Lançamento de Créditos Tributários e de Dívidas Ativas' },
-    { codigo:'10', nome:'Baixa dos Créditos Tributários' },
-    { codigo:'11', nome:'Diário Geral de Arrecadação' },
-    { codigo:'12', nome:'Estorno ou Restituição de Receita do Diário' },
+    { codigo:'1',  nome:'[Tributos] e-Sfinge Online 2026 - 1 - Gerar dados' },
+    { codigo:'TR', nome:'[Tributos] e-Sfinge Online 2026 - Tratamento de dados saldos iniciais (somente em Janeiro)' },
+    { codigo:'TR', nome:'[Tributos] e-Sfinge Online 2026 - Tratamento de dados - Lançamentos não encontrados (Todos assuntos)' },
   ],
   validando: [
-    { codigo:'02', nome:'e-Sfinge Online 2026 - 02 - Validação de vínculos saldos iniciais' },
-    { codigo:'03', nome:'e-Sfinge Online 2026 - 03 - Validação de revisões' },
-    { codigo:'04', nome:'e-Sfinge Online 2026 - 04 - Validação de cobrança dívida ativa' },
-    { codigo:'05', nome:'e-Sfinge Online 2026 - 05 - Validação de lançamentos' },
-    { codigo:'06', nome:'e-Sfinge Online 2026 - 06 - Validação de imóveis' },
-    { codigo:'07', nome:'e-Sfinge Online 2026 - 07 - Validação de contribuintes' },
-    { codigo:'08', nome:'e-Sfinge Online 2026 - 08 - Validação de CONs' },
+    { codigo:'2',  nome:'[Tributos] e-Sfinge Online 2026 - 2 - Validação de vínculos saldos iniciais' },
+    { codigo:'3',  nome:'[Tributos] e-Sfinge Online 2026 - 3 - Validação de revisões' },
+    { codigo:'4',  nome:'[Tributos] e-Sfinge Online 2026 - 4 - Validação de cobrança dívida ativa' },
+    { codigo:'5',  nome:'[Tributos] e-Sfinge Online 2026 - 5 - Validação de lançamentos' },
+    { codigo:'TR', nome:'[Tributos] e-Sfinge Online 2026 - Tratamento de dados - Prazo prescricional não enviado' },
+    { codigo:'6',  nome:'[Tributos] e-Sfinge Online 2026 - 6 - Validação de imóveis' },
+    { codigo:'7',  nome:'[Tributos] e-Sfinge Online 2026 - 7 - Validação de contribuintes' },
+    { codigo:'8',  nome:'[Tributos] e-Sfinge Online 2026 - 8 - Validação de CONs' },
   ],
   enviando: [
     { codigo:'00', nome:'Saldo Inicial de Créditos Tributários e Não Tributários/Inscrição em Dívida Ativa' },
