@@ -531,6 +531,9 @@ function iniciarFirebase() {
       .onSnapshot(snap => {
         const idAtual = _iter?._docId;
         _dados.historico = snap.docs.map(doc => ({ ...doc.data(), _docId: doc.id }));
+        // Migra execuções em andamento para a estrutura de etapas atual,
+        // preservando o que já foi marcado onde a etapa ainda existe.
+        migrarExecucoesPendentes();
         // Mantém a execução selecionada (se o usuário já escolheu uma).
         // NÃO auto-seleciona: ao entrar, mostramos a tela de seleção.
         if (idAtual) {
@@ -601,6 +604,68 @@ async function criarIteracao(competencia, entidade, caminhoResultados) {
   }
   _dados.historico.push(nova);
   _iter = nova;
+}
+
+/* ══════════════════════════════════════════════
+   MIGRAÇÃO DE ETAPAS (estrutura antiga → atual)
+══════════════════════════════════════════════ */
+// Normaliza o nome da etapa para comparar conteúdo, ignorando prefixos/números
+function _normEtapa(s) {
+  return String(s || '')
+    .toLowerCase()
+    .replace(/\[tributos\]/g, '')
+    .replace(/e-?sfinge\s+online\s+\d{4}/g, '')
+    .replace(/[0-9]/g, '')
+    .replace(/[^a-záàâãéêíóôõúüç ]/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Uma execução precisa migrar se alguma fase difere da definição atual
+function precisaMigrar(iter) {
+  for (const fase of FASES) {
+    const def = DEF[fase];
+    const cur = iter.fases?.[fase] || [];
+    if (cur.length !== def.length) return true;
+    for (let i = 0; i < def.length; i++) {
+      if ((cur[i]?.nome || '') !== def[i].nome) return true;
+    }
+  }
+  return false;
+}
+
+// Reconstrói as fases conforme o DEF atual, preservando status/erros das etapas
+// cujo conteúdo ainda existe (casadas por nome normalizado). Sem correspondência → pendente.
+function migrarIter(iter) {
+  const novo = {};
+  for (const fase of FASES) {
+    const antigas = iter.fases?.[fase] || [];
+    const porNome = {};
+    antigas.forEach(s => { const k = _normEtapa(s.nome); if (!(k in porNome)) porNome[k] = s; });
+    novo[fase] = DEF[fase].map(d => {
+      const old = porNome[_normEtapa(d.nome)];
+      if (old && old.status && old.status !== 'pendente') {
+        return { codigo: d.codigo, nome: d.nome, status: old.status, erros: Array.isArray(old.erros) ? old.erros : [] };
+      }
+      return { codigo: d.codigo, nome: d.nome, status: 'pendente', erros: [] };
+    });
+  }
+  iter.fases = novo;
+}
+
+// Migra (em memória + persiste) as execuções EM ANDAMENTO com estrutura antiga.
+// Concluídas ficam intactas como registro histórico.
+function migrarExecucoesPendentes() {
+  if (!_db) return;
+  for (const iter of _dados.historico) {
+    if (iter.status !== 'em_andamento') continue;
+    if (!precisaMigrar(iter)) continue;
+    migrarIter(iter);
+    const { _docId, ...dados } = iter;
+    dados.updatedAt = new Date().toISOString();
+    _db.collection(FB_COLECAO).doc(_docId).set(dados)
+      .catch(e => console.warn('Erro ao migrar execução:', e));
+  }
 }
 
 /* ══════════════════════════════════════════════
