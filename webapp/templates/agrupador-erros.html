@@ -151,6 +151,8 @@
     }
     .btn-copiar:hover    { border-color: var(--blue); color: var(--blue); }
     .btn-copiar.copiado  { border-color: var(--green); color: var(--green); }
+    .btn-copiar-erro     { border-color: #c7d2fe; color: var(--blue-mid); background: #eef2ff; font-weight: 600; }
+    .btn-copiar-erro:hover { background: #e0e7ff; }
 
     /* ── Records table ── */
     .grupo-body { display: none; border-top: 1px solid var(--border); overflow-x: auto; }
@@ -484,6 +486,10 @@
       const na = g.regs.filter(r => r.status === 'Aviso').length;
       const countLabel = (ne && na) ? `${ne} erro${ne>1?'s':''} · ${na} aviso${na>1?'s':''}` : `${g.regs.length} registro${g.regs.length>1?'s':''}`;
 
+      // Botão para copiar a mensagem do erro (uma ocorrência real, completa)
+      const msgErro = g.regs[0]?.descricao || g.chave;
+      const btnErro = `<button class="btn-copiar btn-copiar-erro" data-vals="${escHtml(msgErro)}" onclick="copiarGrupo(this,event)" title="Copiar a mensagem do erro">⎘ Erro</button>`;
+
       // Botões para copiar cada identificador presente no grupo (separados por vírgula)
       const botoesCopiar = ID_TIPOS.map(t => {
         const vals = [...new Set(g.regs.flatMap(r => {
@@ -523,6 +529,7 @@
           <div class="grupo-badges">
             ${tipoBadge}
             <span class="grupo-count ${cntCls}">${countLabel}</span>
+            ${btnErro}
             ${botoesCopiar}
           </div>
         </div>
