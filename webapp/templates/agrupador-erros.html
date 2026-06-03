@@ -128,7 +128,7 @@
       line-height: 1.45; overflow: hidden;
     }
     .grupo-chave code { font-family: 'Segoe UI', sans-serif; color: #6d28d9; background: #f3f0ff; border-radius: 3px; padding: 1px 5px; font-size: .78rem; }
-    .grupo-badges { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
+    .grupo-badges { display: flex; align-items: center; gap: 5px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
     .tbadge {
       font-size: .68rem; font-weight: 700; padding: 2px 8px;
       border-radius: 99px; white-space: nowrap;
@@ -243,6 +243,15 @@
   let _registros = [];
   let _meta      = {};
   let _modo      = 'mensagem';
+
+  // Identificadores que podem ser copiados de cada grupo (só aparecem se houver valor)
+  const ID_TIPOS = [
+    { key: 'id',           label: 'IDs registro' },
+    { key: 'lancamento',   label: 'Lançamentos' },
+    { key: 'contribuinte', label: 'Contribuintes' },
+    { key: 'inscricao',    label: 'Inscrições' },
+    { key: 'credito',      label: 'Tipos crédito' },
+  ];
 
   /* ══════════════════════════════════════════════
      FILE HANDLING
@@ -466,11 +475,12 @@
       const na = g.regs.filter(r => r.status === 'Aviso').length;
       const countLabel = (ne && na) ? `${ne} erro${ne>1?'s':''} · ${na} aviso${na>1?'s':''}` : `${g.regs.length} registro${g.regs.length>1?'s':''}`;
 
-      // Valores copiáveis: contribuintes ou lançamentos
-      const copiavel = [...new Set(g.regs.map(r => r.contribuinte || r.lancamento).filter(Boolean))];
-      const btnCopy  = copiavel.length
-        ? `<button class="btn-copiar" data-vals="${escHtml(copiavel.join(', '))}" onclick="copiarGrupo(this,event)">⎘ ${copiavel.length > 1 ? copiavel.length + ' códigos' : 'código'}</button>`
-        : '';
+      // Botões para copiar cada identificador presente no grupo (separados por vírgula)
+      const botoesCopiar = ID_TIPOS.map(t => {
+        const vals = [...new Set(g.regs.map(r => r[t.key]).filter(Boolean))];
+        if (!vals.length) return '';
+        return `<button class="btn-copiar" data-vals="${escHtml(vals.join(', '))}" onclick="copiarGrupo(this,event)" title="Copiar ${vals.length} ${escHtml(t.label)} separados por vírgula">⎘ ${escHtml(t.label)} (${vals.length})</button>`;
+      }).join('');
 
       // Cabeçalho: normaliza o texto substituindo # por <code>#</code> para destaque visual
       const chaveHtml = escHtml(g.chave).replace(/#/g, '<code>#</code>');
@@ -501,7 +511,7 @@
           <div class="grupo-badges">
             ${tipoBadge}
             <span class="grupo-count ${cntCls}">${countLabel}</span>
-            ${btnCopy}
+            ${botoesCopiar}
           </div>
         </div>
         <div class="grupo-body">
