@@ -246,11 +246,12 @@
 
   // Identificadores que podem ser copiados de cada grupo (só aparecem se houver valor)
   const ID_TIPOS = [
-    { key: 'id',           label: 'IDs registro' },
+    { key: 'codigo',       label: 'Códigos' },
     { key: 'lancamento',   label: 'Lançamentos' },
     { key: 'contribuinte', label: 'Contribuintes' },
     { key: 'inscricao',    label: 'Inscrições' },
     { key: 'credito',      label: 'Tipos crédito' },
+    { key: 'numeros',      label: 'Números (todos)' },
   ];
 
   /* ══════════════════════════════════════════════
@@ -324,6 +325,8 @@
         lancamento:   extrairPadrao(descricao, /lançamento\s+(\d+)/i) || extrairPadrao(descricao, /lancamento\s+(\d+)/i),
         credito:      extrairPadrao(descricao, /tipo de credito\s+(\d+)/i),
         inscricao:    extrairPadrao(descricao, /inscrição\s+(\d+)/i),
+        codigo:       extrairPadrao(descricao, /\bc[óo]d(?:igo)?\.?\s*:?\s*(\d+)/i),  // "cod. 577823" (imóvel etc.)
+        numeros:      extrairNumeros(descricao),                                       // todos os números (menos o cód. de erro BTH-XXXX)
       });
     });
   }
@@ -338,6 +341,12 @@
 
   function extrairPadrao(str, rx) {
     return str.match(rx)?.[1] ?? null;
+  }
+
+  // Todos os números do texto (>=2 dígitos), ignorando o código de erro "BTH-XXXX"
+  function extrairNumeros(str) {
+    const limpo = String(str || '').replace(/\bBTH-?\s*\d+/ig, '');
+    return [...new Set(limpo.match(/\d{2,}/g) || [])];
   }
 
   /* ══════════════════════════════════════════════
@@ -477,7 +486,10 @@
 
       // Botões para copiar cada identificador presente no grupo (separados por vírgula)
       const botoesCopiar = ID_TIPOS.map(t => {
-        const vals = [...new Set(g.regs.map(r => r[t.key]).filter(Boolean))];
+        const vals = [...new Set(g.regs.flatMap(r => {
+          const v = r[t.key];
+          return Array.isArray(v) ? v : (v ? [v] : []);
+        }))];
         if (!vals.length) return '';
         return `<button class="btn-copiar" data-vals="${escHtml(vals.join(', '))}" onclick="copiarGrupo(this,event)" title="Copiar ${vals.length} ${escHtml(t.label)} separados por vírgula">⎘ ${escHtml(t.label)} (${vals.length})</button>`;
       }).join('');
